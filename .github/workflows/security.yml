@@ -1,0 +1,55 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  secret-scan:
+    name: Secret and TLS scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A credential committed once is a credential leaked forever, even if the next commit
+      # removes it. This runs on every push so it is caught before merge rather than after.
+      - name: No Firebase configuration in the SDK
+        run: |
+          if find . -name 'google-services.json' -o -name 'GoogleService-Info.plist' \
+              | grep -q .; then
+            echo "::error::Firebase configuration must never be committed. Each host application provides its own."
+            find . -name 'google-services.json' -o -name 'GoogleService-Info.plist'
+            exit 1
+          fi
+
+      - name: No signing keys or certificates
+        run: |
+          if find . \( -name '*.p8' -o -name '*.p12' -o -name '*.cer' \
+              -o -name '*.mobileprovision' \) | grep -q .; then
+            echo "::error::APNs keys and certificates belong in the backend secret store, never in a mobile binary."
+            exit 1
+          fi
+
+      - name: No TLS bypass
+        run: |
+          # An SDK that ships an SSL bypass ships it to every application that embeds it.
+          if grep -rInE 'TrustAllCerts|ALLOW_ALL_HOSTNAME_VERIFIER|NSAllowsArbitraryLoads' \
+              --include='*.kt' --include='*.swift' --include='*.java' --include='*.plist' \
+              android/sdk/src ios/Sources flutter; then
+            echo "::error::TLS verification must never be weakened in the SDK."
+            exit 1
+          fi
+
+      - name: No hardcoded backend URL in SDK source
+        run: |
+          # Environment selection belongs to the consuming application. Doc comments may show an
+          # example host, so comment lines are filtered out and executable lines are not.
+          if grep -rIn 'push-api[a-z-]*\.ary\.com' \
+              --include='*.kt' --include='*.swift' \
+              android/sdk/src/main ios/Sources flutter/lib flutter/android/src flutter/ios/Classes \
+              | grep -vE '^[^:]*:[0-9]+:[[:space:]]*(///|//|/\*|\*)'; then
+            echo "::error::The SDK must not hardcode an environment URL."
+            exit 1
+          fi

@@ -1,0 +1,50 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+*.aar
+*.apk
+*.aab
+
+# Firebase configuration must never be committed to the SDK repository.
+google-services.json
+GoogleService-Info.plist
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# iOS / Swift
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+Package.resolved
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+flutter/example/ios/Pods/
+flutter/example/ios/Podfile.lock
+
+# Tooling
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# Flutter example platform folders are committed so the examples run out of the box; these
+# per-build files inside them are not.
+flutter/*/ios/Flutter/Generated.xcconfig
+flutter/*/ios/Flutter/flutter_export_environment.sh
+flutter/*/ios/Flutter/ephemeral/
+flutter/*/ios/Runner/GeneratedPluginRegistrant.*
+flutter/*/android/local.properties

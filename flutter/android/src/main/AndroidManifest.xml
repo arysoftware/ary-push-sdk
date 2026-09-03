@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Intentionally empty.
+
+      Every push-related manifest entry (the messaging service, the click trampoline, the
+      permission prompt host, POST_NOTIFICATIONS, INTERNET) comes from the native SDK's own
+      manifest and is merged automatically. Declaring them again here would duplicate components
+      the SDK already owns.
+    -->
+</manifest>

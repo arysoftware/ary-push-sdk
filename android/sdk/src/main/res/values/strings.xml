@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Default notification channel metadata. Host applications override these by declaring a
+      resource with the same name, or by passing a ARYPushConfig with an explicit channel.
+    -->
+    <string name="ary_push_default_channel_name">Notifications</string>
+    <string name="ary_push_default_channel_description">General notifications</string>
+</resources>

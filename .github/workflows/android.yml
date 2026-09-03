@@ -1,0 +1,62 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, lint and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble
+        working-directory: android
+        run: ./gradlew --no-daemon :sdk:assembleRelease
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon :sdk:test
+
+      - name: Lint
+        working-directory: android
+        run: ./gradlew --no-daemon :sdk:lint
+
+      # The samples are what prove the SDK actually embeds into an application, so a break in
+      # manifest merging or the public API is caught here rather than by a consuming team.
+      - name: Build sample host applications
+        working-directory: android
+        run: ./gradlew --no-daemon :sample-basic:assembleDebug :sample-existing-firebase:assembleDebug
+
+      - name: Publish reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: |
+            android/sdk/build/reports/**
+            android/sdk/build/test-results/**
+          if-no-files-found: ignore
+          retention-days: 14

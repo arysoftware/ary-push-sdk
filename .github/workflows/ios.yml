@@ -1,0 +1,52 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build
+        working-directory: ios
+        run: swift build
+
+      - name: Test
+        working-directory: ios
+        run: swift test
+
+      # A package that builds for the host platform can still fail to build for a device, so the
+      # real destination is exercised too.
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild build \
+            -scheme ARYPush \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -skipPackagePluginValidation \
+            | xcpretty || xcodebuild build \
+              -scheme ARYPush \
+              -destination 'platform=iOS Simulator,name=iPhone 15'
+        working-directory: ios
+
+      - name: Validate the CocoaPods spec
+        working-directory: ios
+        run: pod lib lint ARYPush.podspec --allow-warnings --skip-tests --no-clean

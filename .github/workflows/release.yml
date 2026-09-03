@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# One tag releases all three artifacts, so host applications only ever reason about one SDK
+# version. Nothing here publishes before its tests pass: a release artifact must never exist
+# without a green build behind it.
+jobs:
+  android:
+    name: Verify and publish the Android artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive the version from the tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Test and lint
+        working-directory: android
+        run: ./gradlew --no-daemon :sdk:test :sdk:lint
+
+      - name: Publish to the private Maven repository
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_aryMavenUrl: ${{ secrets.ARY_MAVEN_URL }}
+          ORG_GRADLE_PROJECT_aryMavenUser: ${{ secrets.ARY_MAVEN_USER }}
+          ORG_GRADLE_PROJECT_aryMavenPassword: ${{ secrets.ARY_MAVEN_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon \
+            :sdk:publishReleasePublicationToARYPrivateRepository \
+            -ParyPush.version=${{ steps.version.outputs.value }}
+
+  ios:
+    name: Verify the Swift package
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        working-directory: ios
+        run: |
+          swift build
+          swift test
+
+      - name: Validate the CocoaPods spec
+        working-directory: ios
+        run: pod lib lint ARYPush.podspec --allow-warnings --skip-tests --no-clean
+
+      # Swift Package Manager consumers resolve straight from the tag, so there is no artifact to
+      # upload. Verification is the release step.
+
+  flutter:
+    name: Verify the Flutter plugin
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Analyze and test
+        working-directory: flutter
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      # Consumed as a private git dependency pinned to this tag, so again there is no artifact.
+
+  release-notes:
+    name: Publish release notes
+    needs: [android, ios, flutter]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract this version's changelog section
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v version="$VERSION" '
+            $0 ~ "^## \[" version "\]" { capture = 1; next }
+            capture && /^## \[/ { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $VERSION."
+            exit 1
+          fi
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          draft: false
+          prerelease: false

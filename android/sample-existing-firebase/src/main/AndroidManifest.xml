@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      This sample models the awkward case: an application that already owns a
+      FirebaseMessagingService and cannot simply hand FCM over to the SDK.
+
+      FCM delivers com.google.firebase.MESSAGING_EVENT to exactly ONE service, and which one wins
+      when two are declared depends on manifest merge order. So this application does the only
+      thing that is actually deterministic:
+
+        1. removes the SDK's service from the merged manifest, and
+        2. forwards from its own service through ARYPushMessaging.
+
+      Two lines in ExistingMessagingService, and both integrations keep working.
+    -->
+
+    <application
+        android:name=".SampleApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+
+        <service
+            android:name="com.ary.push.messaging.ARYPushFirebaseMessagingService"
+            tools:node="remove" />
+
+        <service
+            android:name=".ExistingMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

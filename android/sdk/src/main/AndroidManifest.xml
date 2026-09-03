@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      ==========================================================================================
+      ARY Push SDK manifest.
+
+      Every entry below is required by the SDK and is documented in docs/ANDROID.md. Nothing
+      here needs to be copied into the host application: manifest merging pulls it in
+      automatically when the host depends on com.ary:ary-push.
+      ==========================================================================================
+    -->
+
+    <!-- Backend synchronisation. Push delivery itself is handled by Google Play services. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Used to defer queued backend operations until connectivity is actually available. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Android 13 (API 33) and above. Requested at runtime by ARYPush.requestPermission(). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+
+        <!--
+          Receives FCM messages and token refreshes.
+
+          If the host application ALREADY declares its own FirebaseMessagingService, Android/FCM
+          will deliver messages to exactly one service and the winner is not guaranteed. In that
+          case remove this service and forward from the host service instead:
+
+              <service
+                  android:name="com.ary.push.messaging.ARYPushFirebaseMessagingService"
+                  tools:node="remove" />
+
+          then call ARYPushMessaging.handleMessage(...) / handleNewToken(...) from the host
+          service. See docs/FIREBASE.md#existing-firebasemessagingservice.
+        -->
+        <service
+            android:name="com.ary.push.messaging.ARYPushFirebaseMessagingService"
+            android:directBootAware="false"
+            android:exported="false">
+            <intent-filter android:priority="-500">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!--
+          Notification click trampoline.
+
+          Android 12 (API 31) forbids starting an activity from a notification via a service or
+          broadcast receiver, so the click PendingIntent targets this invisible activity. It
+          records the open, dispatches the event and then hands control to the host application's
+          own launch intent. The SDK never navigates to a specific screen itself.
+        -->
+        <activity
+            android:name="com.ary.push.internal.NotificationOpenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          One-shot host for the POST_NOTIFICATIONS system prompt (Android 13+).
+
+          Android only reports a permission result to the Activity that asked. Shipping this
+          invisible Activity means ARYPush.requestPermission() works from anywhere, with no
+          ActivityResultLauncher wiring in the host application.
+        -->
+        <activity
+            android:name="com.ary.push.internal.permission.PermissionRequestActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          Optional automatic initialization (AndroidX Startup).
+
+          Disabled unless the host application opts in with:
+              <meta-data android:name="com.ary.push.auto_init" android:value="true" />
+
+          Explicit ARYPush.initialize(context) is always supported and always wins.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.ary.push.startup.ARYPushInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,96 @@
+name: Flutter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - 'android/**'
+      - '.github/workflows/flutter.yml'
+  pull_request:
+    paths:
+      - 'flutter/**'
+      - 'android/**'
+      - '.github/workflows/flutter.yml'
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Resolve dependencies
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Verify formatting
+        working-directory: flutter
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: flutter
+        run: flutter analyze
+
+      - name: Test
+        working-directory: flutter
+        run: flutter test
+
+      - name: Analyze the examples
+        run: |
+          for example in flutter/example flutter/example-firebase; do
+            (cd "$example" && flutter pub get && flutter analyze)
+          done
+
+  build-android:
+    name: Build the example for Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # The example's settings.gradle.kts includes android/sdk from this checkout, so the bridge
+      # is compiled against real SDK source with no publishing step. That also means a break in
+      # the Kotlin bridge or the merged manifest is caught here.
+      - name: Build
+        working-directory: flutter/example
+        run: |
+          flutter pub get
+          flutter build apk --debug
+
+  build-ios:
+    name: Build the example for iOS
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # --no-codesign: CI has no signing identity, and compilation is what is being verified.
+      # The Podfile resolves ARYPush from the source tree, so no pod repository is needed.
+      - name: Build
+        working-directory: flutter/example
+        run: |
+          flutter pub get
+          flutter build ios --debug --no-codesign

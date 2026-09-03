@@ -1,0 +1,19 @@
+Copyright (c) 2026 ARY. All rights reserved.
+
+PROPRIETARY AND CONFIDENTIAL
+
+This software and its source code are the confidential and proprietary property of ARY.
+They are licensed, not sold, for internal use by ARY and its authorized subsidiaries,
+contractors and partners only.
+
+You may not, without prior written permission from ARY:
+
+  1. Distribute, publish, sublicense, sell or otherwise make this software available to any
+     third party.
+  2. Publish this software or any derivative of it to a public package registry, including but
+     not limited to Maven Central, the CocoaPods trunk, pub.dev or a public source repository.
+  3. Reverse engineer, decompile or disassemble the software except to the extent that such
+     activity is expressly permitted by applicable law.
+  4. Remove or alter this notice.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.

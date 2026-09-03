@@ -1,0 +1,31 @@
+# Normalise everything to LF in the repository.
+#
+# This matters more than it looks: `gradlew` is a shell script executed by the Linux and macOS
+# CI runners, and a CRLF copy fails there with "bad interpreter". Committing LF and letting Git
+# check out whatever each platform prefers keeps one repository working on all three.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF or cmd.exe mishandles them.
+*.bat        text eol=crlf
+*.cmd        text eol=crlf
+
+# Executable shell scripts stay LF everywhere, including on Windows checkouts.
+gradlew      text eol=lf
+*.sh         text eol=lf
+
+# Binaries: never touched, never diffed as text.
+*.jar        binary
+*.zip        binary
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.pdf        binary
+*.ttf        binary
+*.otf        binary
+*.aar        binary
+*.keystore   binary
+*.jks        binary
+
+# Generated Xcode project files: keep them out of diffs, they are noise.
+*.pbxproj    -diff merge=union
