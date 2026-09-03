@@ -44,8 +44,26 @@ val aryMavenPassword: String? =
     providers.gradleProperty("aryMavenPassword").orNull
         ?: System.getenv("ARY_MAVEN_PASSWORD")
 
+// GitHub Packages, the default host for the published SDK. A consuming application sets two
+// properties in android/gradle.properties (or the matching environment variables) and needs
+// nothing else:
+//
+//     aryGithubUser=<github username>
+//     aryGithubToken=<a token with read:packages>
+//
+// GitHub Packages requires authentication even for packages you can already see, which is why
+// a token is needed here where a public Maven repository would need none.
+val aryGithubUser: String? =
+    providers.gradleProperty("aryGithubUser").orNull ?: System.getenv("ARY_GITHUB_USER")
+val aryGithubToken: String? =
+    providers.gradleProperty("aryGithubToken").orNull ?: System.getenv("ARY_GITHUB_TOKEN")
+val aryGithubOwner: String =
+    providers.gradleProperty("aryGithubOwner").getOrElse("arysoftware")
+val aryGithubRepo: String =
+    providers.gradleProperty("aryGithubRepo").getOrElse("ary-push-sdk")
+
 // Monorepo development: the SDK published locally by scripts/dev_publish_local.sh. Absent in a
-// consuming application, which resolves the artifact from the private repository instead.
+// consuming application, which resolves the artifact from a remote repository instead.
 val aryPushLocalRepo = file("../../android/build/local-maven")
 
 allprojects {
@@ -53,9 +71,19 @@ allprojects {
         google()
         mavenCentral()
 
-        // ARY's private Maven repository, where com.ary:ary-push lives.
-        // Supplied by the host application through a Gradle property or an environment
-        // variable; never hardcoded, and never committed with credentials.
+        if (!aryGithubToken.isNullOrBlank()) {
+            maven {
+                name = "aryGithubPackages"
+                url = uri("https://maven.pkg.github.com/$aryGithubOwner/$aryGithubRepo")
+                credentials {
+                    username = aryGithubUser
+                    password = aryGithubToken
+                }
+            }
+        }
+
+        // A self-hosted Maven repository, for teams not using GitHub Packages. Supplied through
+        // a property or environment variable; never hardcoded, never committed with credentials.
         if (!aryMavenUrl.isNullOrBlank()) {
             maven {
                 url = uri(aryMavenUrl)
@@ -119,24 +147,32 @@ dependencies {
     }
 }
 
-// Without either source, resolution fails with a bare "Could not find com.ary:ary-push", which
-// says nothing about how to fix it. Say it here, before the failure happens.
-if (localSdkProject == null && aryMavenUrl.isNullOrBlank() && !aryPushLocalRepo.isDirectory) {
+// Without any source, resolution fails with a bare "Could not find com.ary:ary-push", which says
+// nothing about how to fix it. Say it here, before the failure happens.
+if (localSdkProject == null && aryGithubToken.isNullOrBlank() &&
+    aryMavenUrl.isNullOrBlank() && !aryPushLocalRepo.isDirectory
+) {
     logger.lifecycle(
         """
 
-        ARY Push SDK: the native SDK could not be located.
+        ARY Push SDK: the native Android SDK could not be located. Pick one:
 
-          Building from a local checkout? Add two lines to your app's
-          android/settings.gradle.kts:
+          1. GitHub Packages (recommended). In android/gradle.properties:
 
-              include(":ary-push-sdk")
-              project(":ary-push-sdk").projectDir = file("/path/to/ary-push-sdk/android/sdk")
+                 aryGithubUser=<your github username>
+                 aryGithubToken=<a token with read:packages>
 
-          Consuming a published artifact? Point Gradle at the private repository in
-          android/gradle.properties:
+          2. A git submodule, if you would rather not publish. In android/settings.gradle.kts:
 
-              aryMavenUrl=https://maven.ary.internal/releases
+                 include(":ary-push-sdk")
+                 project(":ary-push-sdk").projectDir =
+                     file("../ary-push-sdk/android/sdk")
+
+          3. A self-hosted Maven repository:
+
+                 aryMavenUrl=https://maven.ary.internal/releases
+
+        See docs/INTEGRATION.md.
 
         """.trimIndent()
     )

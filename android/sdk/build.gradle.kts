@@ -129,6 +129,30 @@ publishing {
     }
 
     repositories {
+        // GitHub Packages. The simplest Maven host for a private SDK when the code is already
+        // on GitHub: no server to run, and access is governed by the same repository
+        // permissions as the source.
+        //
+        //   ./gradlew :sdk:publishReleasePublicationToGithubPackagesRepository \
+        //       -ParyGithubUser=<username> -ParyGithubToken=<token with write:packages>
+        //
+        // Consuming projects read it back with a token that has read:packages. See
+        // docs/INTEGRATION.md.
+        val githubOwner = providers.gradleProperty("aryGithubOwner").getOrElse("arysoftware")
+        val githubRepo = providers.gradleProperty("aryGithubRepo").getOrElse("ary-push-sdk")
+        maven {
+            name = "githubPackages"
+            url = uri("https://maven.pkg.github.com/$githubOwner/$githubRepo")
+            credentials {
+                username = providers.gradleProperty("aryGithubUser").orNull
+                    ?: System.getenv("GITHUB_ACTOR")
+                password = providers.gradleProperty("aryGithubToken").orNull
+                    ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+
+        // A self-hosted Maven repository, for teams that would rather not depend on GitHub
+        // Packages. Configured entirely from properties; never committed with credentials.
         val privateUrl = providers.gradleProperty("aryMavenUrl").orNull
         if (privateUrl != null) {
             maven {
@@ -140,6 +164,7 @@ publishing {
                 }
             }
         }
+
         // Always available, and what scripts/dev_publish_local.sh targets:
         //   ./gradlew :sdk:publishReleasePublicationToLocalStagingRepository
         maven {
