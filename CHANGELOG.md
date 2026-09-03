@@ -46,5 +46,5 @@ three artifacts, so host applications only ever reason about one SDK version.
 - Namespaced isolated storage and a masking logger.
 - Full documentation set, sample host applications, unit tests and CI workflows.
 
-[Unreleased]: https://github.com/ary/ary-push-sdk/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ary/ary-push-sdk/releases/tag/v1.0.0
+[Unreleased]: https://github.com/arysoftware/ary-push-sdk/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/arysoftware/ary-push-sdk/releases/tag/v1.0.0

@@ -8,7 +8,7 @@
 # The pod is private: it is never pushed to the CocoaPods trunk. Consumers reference it from the
 # ARY's private spec repository, or directly from the private Git repository:
 #
-#   pod 'ARYPush', :git => 'git@github.com:ary/ary-push-sdk.git',
+#   pod 'ARYPush', :git => 'git@github.com:arysoftware/ary-push-sdk.git',
 #                      :tag => 'v1.0.0', :branch => nil
 #
 Pod::Spec.new do |s|
@@ -20,10 +20,10 @@ Pod::Spec.new do |s|
     management, installation identity, notification delivery and taps, tags, topics, user
     identity, backend synchronisation with an offline queue, retries and deduplication.
   DESC
-  s.homepage         = 'https://github.com/ary/ary-push-sdk'
+  s.homepage         = 'https://github.com/arysoftware/ary-push-sdk'
   s.license          = { :type => 'Proprietary', :file => '../LICENSE' }
   s.author           = { 'ARY' => 'mobile@ary.com' }
-  s.source           = { :git => 'git@github.com:ary/ary-push-sdk.git', :tag => "v#{s.version}" }
+  s.source           = { :git => 'git@github.com:arysoftware/ary-push-sdk.git', :tag => "v#{s.version}" }
 
   s.ios.deployment_target = '13.0'
   s.swift_version    = '5.9'

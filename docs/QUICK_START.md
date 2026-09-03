@@ -111,7 +111,7 @@ the SDK forwards to it rather than replacing it. See [IOS.md](IOS.md#delegate-sa
 dependencies:
   ary_push:
     git:
-      url: git@github.com:ary/ary-push-sdk.git
+      url: git@github.com:arysoftware/ary-push-sdk.git
       ref: v1.0.0
       path: flutter
 ```

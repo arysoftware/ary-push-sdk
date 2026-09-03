@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.version          = '1.0.0'
   s.summary          = 'Flutter bridge for the private ARY Push SDK.'
   s.description      = 'Thin MethodChannel and EventChannel bridge over the native ARYPush SDK.'
-  s.homepage         = 'https://github.com/ary/ary-push-sdk'
+  s.homepage         = 'https://github.com/arysoftware/ary-push-sdk'
   s.license          = { :type => 'Proprietary', :file => '../../LICENSE' }
   s.author           = { 'ARY' => 'mobile@ary.com' }
   s.source           = { :path => '.' }
@@ -21,7 +21,7 @@ Pod::Spec.new do |s|
   # or add the following to their ios/Podfile so it comes straight from the private Git
   # repository:
   #
-  #   pod 'ARYPush', :git => 'git@github.com:ary/ary-push-sdk.git', :tag => 'v1.0.0'
+  #   pod 'ARYPush', :git => 'git@github.com:arysoftware/ary-push-sdk.git', :tag => 'v1.0.0'
   #
   s.dependency 'ARYPush', '~> 1.0'
 

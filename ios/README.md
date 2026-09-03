@@ -9,7 +9,7 @@ In Xcode: **File > Add Package Dependencies**, then the private repository URL. 
 
 ```swift
 dependencies: [
-    .package(url: "git@github.com:ary/ary-push-sdk.git", from: "1.0.0")
+    .package(url: "git@github.com:arysoftware/ary-push-sdk.git", from: "1.0.0")
 ]
 ```
 

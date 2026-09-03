@@ -3,7 +3,7 @@ description: >-
   Private ARY push notification SDK for Flutter. A thin bridge over the native Android and
   iOS ARY Push SDKs.
 version: 1.0.0
-homepage: https://github.com/ary/ary-push-sdk
+homepage: https://github.com/arysoftware/ary-push-sdk
 publish_to: none
 
 environment:

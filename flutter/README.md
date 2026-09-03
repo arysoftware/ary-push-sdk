@@ -14,7 +14,7 @@ notification tap has to be captured.
 dependencies:
   ary_push:
     git:
-      url: git@github.com:ary/ary-push-sdk.git
+      url: git@github.com:arysoftware/ary-push-sdk.git
       ref: v1.0.0
       path: flutter
 ```

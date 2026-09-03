@@ -35,7 +35,7 @@ target 'Runner' do
   # A consuming application resolves this from ARY's private spec repository, or
   # straight from the private Git repository:
   #
-  #   pod 'ARYPush', :git => 'git@github.com:ary/ary-push-sdk.git', :tag => 'v1.0.0'
+  #   pod 'ARYPush', :git => 'git@github.com:arysoftware/ary-push-sdk.git', :tag => 'v1.0.0'
   #
   # Inside this monorepo it is resolved from the source tree, so a change to the Swift SDK is
   # picked up by the next build with no publishing step.
