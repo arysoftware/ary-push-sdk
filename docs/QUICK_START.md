@@ -26,7 +26,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 // app/build.gradle.kts
-implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
 ```
 
 ### 2. Initialize
@@ -66,8 +66,10 @@ trampoline and the manifest entries all arrive through manifest merging.
 
 ### 1. Add the package
 
-Xcode: **File > Add Package Dependencies**, then the private repository URL, pinned to
-`Up to Next Major Version` from `1.0.0`.
+Xcode: **File > Add Package Dependencies**, then
+`https://github.com/arysoftware/ary-push-sdk`. No GitHub account needed — the repository is
+public. Pin to `Up to Next Major Version` from `1.0.0` once that tag exists, or to `main` before
+then.
 
 Enable **Push Notifications** under Signing & Capabilities. For silent messages, also enable
 **Background Modes > Remote notifications**.
@@ -111,8 +113,7 @@ the SDK forwards to it rather than replacing it. See [IOS.md](IOS.md#delegate-sa
 dependencies:
   ary_push:
     git:
-      url: git@github.com:arysoftware/ary-push-sdk.git
-      ref: v1.0.0
+      url: https://github.com/arysoftware/ary-push-sdk.git
       path: flutter
 ```
 

@@ -11,13 +11,13 @@
 dependencies:
   ary_push:
     git:
-      url: git@github.com:arysoftware/ary-push-sdk.git
-      ref: v1.0.0
+      url: https://github.com/arysoftware/ary-push-sdk.git
       path: flutter
 ```
 
-Production projects reference a release tag, never a branch. Developers need SSH access to the
-private repository; CI needs a deploy key.
+The repository is public, so this needs no SSH key and no deploy key. With no `ref` it tracks the
+default branch, which is the right default while the SDK is moving; add `ref: v1.0.0` to pin a
+release, which is what a production project should do before it ships.
 
 ## Native prerequisites
 

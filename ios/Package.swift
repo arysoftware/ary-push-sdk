@@ -5,7 +5,7 @@
 // Distributed privately. Host applications add it as a Swift Package from ARY's private
 // Git repository and pin an immutable version tag:
 //
-//   .package(url: "git@github.com:arysoftware/ary-push-sdk.git", from: "1.0.0")
+//   .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
 //
 // The package has no external dependencies on purpose. It uses UserNotifications and
 // UIKit directly, so it never forces a Firebase version, a networking library or an

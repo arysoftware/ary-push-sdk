@@ -16,11 +16,12 @@ dependencyResolutionManagement {
 
 ```kotlin
 // app/build.gradle.kts
-implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
 ```
 
-No credentials: the repository is public and JitPack builds the tag on demand. The version is the
-git tag verbatim, which is where the leading `v` comes from.
+No credentials: the repository is public and JitPack builds it on demand. The version is a git
+reference — `main-SNAPSHOT` for the tip of `main`, or a tag such as `v1.0.0` to pin a release,
+which is what a shipping application should do.
 
 ## Initialization
 

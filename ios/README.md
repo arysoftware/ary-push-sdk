@@ -4,12 +4,14 @@ Swift implementation of the ARY Push SDK, distributed as a private Swift Package
 
 ## Integration
 
-In Xcode: **File > Add Package Dependencies**, then the private repository URL. Or in a
-`Package.swift`:
+In Xcode: **File > Add Package Dependencies**, then
+`https://github.com/arysoftware/ary-push-sdk`. The repository is public: no account, no SSH key.
+Or in a `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "git@github.com:arysoftware/ary-push-sdk.git", from: "1.0.0")
+    // Once v1.0.0 is tagged; before then use `branch: "main"`.
+    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
 ]
 ```
 

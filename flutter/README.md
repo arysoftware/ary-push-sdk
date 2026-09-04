@@ -14,12 +14,12 @@ notification tap has to be captured.
 dependencies:
   ary_push:
     git:
-      url: git@github.com:arysoftware/ary-push-sdk.git
-      ref: v1.0.0
+      url: https://github.com/arysoftware/ary-push-sdk.git
       path: flutter
 ```
 
-Production projects reference a release tag, never a branch.
+The repository is public, so no key or token is involved. With no `ref` this tracks the default
+branch; add `ref: v1.0.0` to pin a release before shipping.
 
 ```dart
 Future<void> main() async {

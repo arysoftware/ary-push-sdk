@@ -5,15 +5,17 @@
 # local Maven repository, which is where JitPack collects artifacts from.
 #
 # JitPack is how applications get this SDK. The repository is public, so JitPack builds it for
-# free, on demand, from a git tag, and a consuming application needs no token and no account.
+# free, on demand, and a consuming application needs no token and no account.
 #
-# JitPack serves everything under com.github.<owner>, and uses the tag verbatim as the Maven
-# version, so the artifact a consuming project asks for is:
+# JitPack serves everything under com.github.<owner>, and the Maven version is a git reference,
+# so a consuming project asks for any of:
 #
-#     com.github.arysoftware:ary-push-sdk:v1.0.0
+#     com.github.arysoftware:ary-push-sdk:main-SNAPSHOT   the tip of main, the default
+#     com.github.arysoftware:ary-push-sdk:v1.0.0          a tag, pinned
+#     com.github.arysoftware:ary-push-sdk:9b152ce         a commit, pinned
 #
-# android/gradle.properties already defaults to those coordinates, so a local build produces the
-# same artifact name. Publishing to a self-hosted repository instead uses com.ary:ary-push via
+# android/gradle.properties defaults to the first, so a local build produces the same artifact
+# name. Publishing to a self-hosted repository instead uses com.ary:ary-push via
 # -ParyPush.group / -ParyPush.artifact. Same AAR, two names.
 
 jdk:

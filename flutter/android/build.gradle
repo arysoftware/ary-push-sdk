@@ -66,11 +66,19 @@ if (project.hasProperty('aryPushLocalRepo')) {
 // A local SDK module, when the host build includes one. Preferred over any artifact.
 def localSdkProject = rootProject.findProject(':ary-push-sdk')
 
-// JitPack's coordinate: it serves everything under com.github.<owner>, and the Maven version is
-// the git tag verbatim, hence the leading "v". Override from android/gradle.properties to point
-// at a self-hosted repository instead:
+// JitPack's coordinate: it serves everything under com.github.<owner>.
+//
+// The default tracks the default branch rather than a release, so an application needs no
+// version to keep in step with — JitPack rebuilds `main-SNAPSHOT` whenever the branch moves, and
+// Gradle treats any `-SNAPSHOT` version as a changing module and re-checks it.
+//
+// Pin it from android/gradle.properties when you want a fixed build, which is what a production
+// application should do. Any of these works — a tag, a commit, or another repository:
+//
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:9b152ce
 //     arySdkCoordinate=com.ary:ary-push:1.0.0
-def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?: 'com.github.arysoftware:ary-push-sdk:v1.0.0'
+def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?: 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT'
 
 repositories {
     google()

@@ -2,12 +2,17 @@
 
 ## Package
 
-Xcode: **File > Add Package Dependencies**, then the private repository URL, pinned to
-`Up to Next Major Version` from `1.0.0`. Or in a `Package.swift`:
+Xcode: **File > Add Package Dependencies**, then
+`https://github.com/arysoftware/ary-push-sdk`. The repository is public, so no GitHub account is
+needed in Xcode and no SSH key is involved. Or in a `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "git@github.com:arysoftware/ary-push-sdk.git", from: "1.0.0")
+    // Once v1.0.0 is tagged:
+    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
+
+    // Before any tag exists, track the branch:
+    // .package(url: "https://github.com/arysoftware/ary-push-sdk.git", branch: "main")
 ]
 ```
 

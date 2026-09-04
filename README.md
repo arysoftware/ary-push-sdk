@@ -4,9 +4,10 @@ A **private**, ARY-owned push notification SDK for native Android, native iOS an
 applications. It owns the entire client-side push lifecycle so that host applications only have to
 care about UI, navigation and business logic.
 
-> This is private infrastructure. It is **not** published to Maven Central, the CocoaPods trunk or
-> pub.dev. Distribution is via a private Maven repository, a private Swift Package Manager
-> repository and a private Git dependency.
+> ARY-owned infrastructure. It is **not** published to Maven Central, the CocoaPods trunk or
+> pub.dev. Distribution is straight from this repository: JitPack builds the Android artifact on
+> demand, Swift Package Manager and `pub` read the git tag directly. No account or token is
+> needed on any platform.
 
 ---
 
@@ -48,14 +49,14 @@ ary-push-sdk/
 
 ## Quick start
 
-Tag a release (`scripts/release.sh 1.0.0`), then — on every platform, with no account, token or
-credential of any kind:
+On every platform, with no account, token or credential of any kind. `main-SNAPSHOT` tracks the
+tip of `main`, so nothing needs a version until you want to pin a release:
 
 **Android** — one repository line in `settings.gradle.kts` plus the dependency:
 
 ```kotlin
 maven { url = uri("https://jitpack.io") }
-implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
 ```
 
 ```kotlin
@@ -76,7 +77,6 @@ dependencies:
   ary_push:
     git:
       url: https://github.com/arysoftware/ary-push-sdk.git
-      ref: v1.0.0
       path: flutter
 ```
 

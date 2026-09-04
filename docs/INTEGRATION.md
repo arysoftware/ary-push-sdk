@@ -27,10 +27,24 @@ Each platform's own package manager fetches the SDK the way it fetches any open 
 
 Two consequences worth knowing:
 
-- A release is a **git tag**, not an upload. JitPack builds `v1.0.0` the first time someone asks
-  for it, then caches it. Nothing is pushed to a Maven host.
-- JitPack's coordinate is `com.github.<owner>:<repo>:<tag>`, and the version is the tag verbatim,
-  hence the leading `v` in `com.github.arysoftware:ary-push-sdk:v1.0.0`.
+- Nothing is uploaded to a Maven host. JitPack compiles the SDK the first time someone asks for a
+  given version, then caches it, so a release is a **git tag** and nothing more.
+- JitPack's coordinate is `com.github.<owner>:<repo>:<version>`, where the version is a git
+  reference: a tag verbatim (`v1.0.0`), a commit (`9b152ce`), or `<branch>-SNAPSHOT`.
+
+### Which version to ask for
+
+| Version | Resolves to | Use it when |
+| --- | --- | --- |
+| `main-SNAPSHOT` | The tip of `main`, rebuilt as it moves | The default. Nothing to keep in step |
+| `v1.0.0` | That tag, forever | A production app that wants a fixed, reviewable build |
+| `9b152ce` | That commit, forever | Pinning to something specific with no tag for it |
+
+The default is `main-SNAPSHOT` so an application needs no version to manage and works before any
+tag exists. Gradle treats a `-SNAPSHOT` version as a changing module and re-checks it rather than
+caching it forever, so a push to `main` reaches applications on the next build. That is
+convenient during development and is exactly what you do **not** want in a shipping app — pin a
+tag before you release.
 
 ### Still: never commit a credential
 
@@ -43,8 +57,8 @@ old commit still contains it, and on a pushed branch it has already left your ma
 
 ### Building the examples in this repository
 
-The examples resolve the SDK exactly as an application does, so they need a release tag that
-JitPack has built. Before that tag exists:
+The examples resolve the SDK exactly as an application does, so they need a version JitPack has
+built. To build them from the working tree instead, with no network at all:
 
 ```bash
 scripts/dev_offline_examples.sh
@@ -135,14 +149,14 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+    implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
 }
 ```
 
-The version is the git tag verbatim — that is JitPack's convention, and why it carries the `v`.
-The first build of a tag takes a minute or two while JitPack compiles it; after that it is
+`main-SNAPSHOT` tracks the tip of `main`; swap in a tag such as `v1.0.0` to pin a release. The
+first build of any version takes a minute or two while JitPack compiles it; after that it is
 cached and served like any other artifact. If it fails, the build log is at
-`https://jitpack.io/com/github/arysoftware/ary-push-sdk/v1.0.0/build.log`.
+`https://jitpack.io/com/github/arysoftware/ary-push-sdk/<version>/build.log`.
 
 ### Route B — Git submodule
 
@@ -363,9 +377,10 @@ dependencies:
   ary_push:
     git:
       url: https://github.com/arysoftware/ary-push-sdk.git
-      ref: v1.0.0
       path: flutter
 ```
+
+No `ref` tracks the default branch. Add `ref: v1.0.0` to pin a release.
 
 ```bash
 flutter pub get
