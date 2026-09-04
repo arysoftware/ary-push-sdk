@@ -30,7 +30,14 @@ buildscript {
 }
 
 apply plugin: 'com.android.library'
-apply plugin: 'org.jetbrains.kotlin.android'
+
+// AGP 9 compiles Kotlin itself and treats the standalone Kotlin plugin applied on top as a hard
+// error. An application that sets android.builtInKotlin=false still needs it, and so does anyone
+// on AGP 8. So the decision is made from what AGP actually registered, not from a version number
+// we would have to keep in step with the host application's.
+if (project.extensions.findByName('kotlin') == null) {
+    apply plugin: 'org.jetbrains.kotlin.android'
+}
 
 group = 'com.ary.push.flutter'
 version = '1.0.0'
@@ -133,9 +140,18 @@ android {
     }
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+// Kotlin's JVM target must match compileOptions above, or the Kotlin compiler refuses the build.
+// Both the standalone plugin and AGP's built-in Kotlin expose a `kotlin` extension, but the
+// shape differs between them and between versions, so this is best-effort: if it cannot be set
+// here, AGP has already aligned it with compileOptions and there is nothing to do.
+def aryKotlinExtension = project.extensions.findByName('kotlin')
+if (aryKotlinExtension != null) {
+    try {
+        aryKotlinExtension.compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    } catch (Exception ignored) {
+        logger.info('ARY Push SDK: leaving the Kotlin JVM target to AGP')
     }
 }
 
