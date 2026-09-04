@@ -1,12 +1,8 @@
 pluginManagement {
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\.android.*")
-                includeGroupByRegex("com\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        // No content filters here on purpose. They are only a resolution optimisation, and the
+        // regex form is a well-known source of Kotlin escaping bugs for no real benefit.
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -22,7 +18,7 @@ dependencyResolutionManagement {
         // application does. JitPack would need a paid plan for a private repository; GitHub
         // Packages only needs a free token with read:packages.
         //
-        // Put these in ~/.gradle/gradle.properties, never in the repository:
+        // Put these in ~/.gradle/gradle.properties, never in a repository:
         //     aryGithubUser=<github username>
         //     aryGithubToken=<token with read:packages>
         maven {

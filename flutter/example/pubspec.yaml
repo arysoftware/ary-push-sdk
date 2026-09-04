@@ -22,8 +22,8 @@ dependencies:
   # published. pubspec_overrides.yaml is git-ignored and never ships.
   ary_push:
     git:
-      url: https://github.com/arysoftware/ary-push-sdk.git
-      ref: v1.0.0
+      url: https://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@github.com/arysoftware/ary-push-sdk.git
+      #ref: v1.0.0
       path: flutter
 
 dev_dependencies:
