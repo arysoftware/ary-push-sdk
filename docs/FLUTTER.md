@@ -32,7 +32,7 @@ The plugin is a bridge. The native SDKs still need what they always need:
 
 ### Android toolchain
 
-The plugin's `android/build.gradle.kts` defaults to AGP 9.0.1 and Kotlin 2.3.20, matching
+The plugin's `android/build.gradle` defaults to AGP 9.0.1 and Kotlin 2.3.20, matching
 what `flutter create` generates on Flutter 3.44. An application on an older Flutter can
 override both from its `android/gradle.properties` rather than forking the plugin:
 

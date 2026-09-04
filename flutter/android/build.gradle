@@ -1,0 +1,179 @@
+// Flutter plugin module for the ARY Push SDK.
+//
+// A bridge, not an implementation: it depends on the Android SDK artifact and forwards to it.
+//
+// Written in Groovy, and applying its plugins with `apply plugin:` rather than a `plugins {}`
+// block, on purpose. A versionless `plugins { id("com.android.library") }` only resolves when
+// the *application's* settings.gradle declares that exact plugin id, and a plugin cannot
+// require that of every application that consumes it. `apply plugin:` resolves from this
+// module's own buildscript classpath, which is under our control.
+
+buildscript {
+    // Defaults match what `flutter create` generates on Flutter 3.44. An application on an
+    // older Flutter can override both from its android/gradle.properties rather than forking
+    // this plugin:
+    //
+    //     aryPushAgpVersion=8.7.3
+    //     aryPushKotlinVersion=2.1.0
+    //
+    ext.aryAgpVersion = project.findProperty('aryPushAgpVersion') ?: '9.0.1'
+    ext.aryKotlinVersion = project.findProperty('aryPushKotlinVersion') ?: '2.3.20'
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:$aryAgpVersion"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$aryKotlinVersion"
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+group = 'com.ary.push.flutter'
+version = '1.0.0'
+
+// ---------------------------------------------------------------- where the SDK comes from
+
+def aryGithubUser = project.findProperty('aryGithubUser') ?: System.getenv('ARY_GITHUB_USER')
+def aryGithubToken = project.findProperty('aryGithubToken') ?: System.getenv('ARY_GITHUB_TOKEN')
+def aryGithubOwner = project.findProperty('aryGithubOwner') ?: 'arysoftware'
+def aryGithubRepo = project.findProperty('aryGithubRepo') ?: 'ary-push-sdk'
+def aryJitpackToken = project.findProperty('aryJitpackToken') ?: System.getenv('ARY_JITPACK_TOKEN')
+def aryMavenUrl = project.findProperty('aryMavenUrl') ?: System.getenv('ARY_MAVEN_URL')
+def aryMavenUser = project.findProperty('aryMavenUser') ?: System.getenv('ARY_MAVEN_USER')
+def aryMavenPassword = project.findProperty('aryMavenPassword') ?: System.getenv('ARY_MAVEN_PASSWORD')
+
+// Monorepo development: the SDK published by scripts/dev_publish_local.sh.
+def aryPushLocalRepo = file('../../android/build/local-maven')
+
+// A local SDK module, when the host build includes one. Preferred over any artifact.
+def localSdkProject = rootProject.findProject(':ary-push-sdk')
+
+// Override from android/gradle.properties to use JitPack or a self-hosted repository:
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
+def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?: 'com.ary:ary-push:1.0.0'
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+// Declared on every project in the build, not just this one.
+//
+// Gradle resolves a dependency graph using the repositories of the project that owns the
+// resolution -- the application module -- not those of the module that declared the dependency.
+// A repository declared only here would never be consulted for the SDK coordinate, and the
+// failure is an opaque "Could not find" that lists every repository except the one holding it.
+// Reaching into rootProject is the only way a plugin can carry its own native dependency, and
+// it is skipped entirely when a local SDK module is present.
+if (localSdkProject == null) {
+    rootProject.allprojects { proj ->
+        proj.repositories {
+            if (aryGithubToken) {
+                maven {
+                    name = 'aryGithubPackages'
+                    url = "https://maven.pkg.github.com/$aryGithubOwner/$aryGithubRepo"
+                    credentials {
+                        username = aryGithubUser
+                        password = aryGithubToken
+                    }
+                }
+            }
+
+            // JitPack. Free for public repositories only.
+            if (aryJitpackToken || arySdkCoordinate.startsWith('com.github.')) {
+                maven {
+                    name = 'aryJitpack'
+                    url = 'https://jitpack.io'
+                    if (aryJitpackToken) {
+                        credentials { username = aryJitpackToken }
+                    }
+                }
+            }
+
+            if (aryMavenUrl) {
+                maven {
+                    url = aryMavenUrl
+                    credentials {
+                        username = aryMavenUser
+                        password = aryMavenPassword
+                    }
+                }
+            }
+
+            if (aryPushLocalRepo.isDirectory()) {
+                maven { url = aryPushLocalRepo }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- module
+
+android {
+    namespace 'com.ary.push.flutter'
+    compileSdk 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        // Flutter's own floor. The native SDK supports API 21, so a native Android application
+        // consuming com.ary:ary-push directly is not constrained by this number.
+        minSdk 24
+    }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    if (localSdkProject != null) {
+        logger.info("ARY Push SDK: building against the local SDK at ${localSdkProject.projectDir}")
+        implementation localSdkProject
+    } else {
+        implementation arySdkCoordinate
+    }
+}
+
+// The failure without credentials is an opaque "Could not find" that lists every repository
+// except the one holding the artifact. Say what to do before that happens.
+if (localSdkProject == null && !aryGithubToken && !aryJitpackToken && !aryMavenUrl
+        && !aryPushLocalRepo.isDirectory()) {
+    logger.lifecycle """
+
+ARY Push SDK: no credentials configured for ${arySdkCoordinate}.
+
+A private repository always needs authentication somewhere. Pick one:
+
+  1. GitHub Packages. In android/gradle.properties, or ~/.gradle/gradle.properties:
+
+         aryGithubUser=<github username>
+         aryGithubToken=<token with read:packages>
+
+  2. A git submodule, which needs no package token at all. In android/settings.gradle.kts:
+
+         include(":ary-push-sdk")
+         project(":ary-push-sdk").projectDir = file("../ary-push-sdk/android/sdk")
+
+  3. JitPack, a paid feature for private repositories:
+
+         arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
+         aryJitpackToken=<token from jitpack.io/private>
+
+See docs/INTEGRATION.md.
+
+"""
+}

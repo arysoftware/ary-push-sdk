@@ -64,7 +64,7 @@ edit ios/Sources/ARYPush/Internal/DeviceInfoProvider.swift \
 edit ios/ARYPush.podspec "s/(s\.version[[:space:]]*=[[:space:]]*)'[0-9.]+'/\1'$VERSION'/"
 edit flutter/pubspec.yaml "s/^version: .*/version: $VERSION/"
 edit flutter/ios/ary_push.podspec "s/(s\.version[[:space:]]*=[[:space:]]*)'[0-9.]+'/\1'$VERSION'/"
-edit flutter/android/build.gradle.kts "s/^version = \"[0-9.]+\"/version = \"$VERSION\"/"
+edit flutter/android/build.gradle "s/^version = '[0-9.]+'/version = '$VERSION'/"
 
 # ---------------------------------------------------------------- verify
 
