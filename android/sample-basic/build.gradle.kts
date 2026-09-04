@@ -58,7 +58,10 @@ dependencies {
     if (providers.gradleProperty("aryPushLocal").getOrElse("false") == "true") {
         implementation(project(":sdk"))
     } else {
-        implementation("com.ary:ary-push:1.0.0")
+        val group = providers.gradleProperty("aryPush.group").getOrElse("com.ary")
+        val artifact = providers.gradleProperty("aryPush.artifact").getOrElse("ary-push")
+        val version = providers.gradleProperty("aryPush.version").getOrElse("1.0.0")
+        implementation("$group:$artifact:$version")
     }
 
     implementation(libs.androidx.core)

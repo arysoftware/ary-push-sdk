@@ -32,6 +32,34 @@ jobs:
             exit 1
           fi
 
+      - name: No access tokens or credentials in tracked files
+        run: |
+          # A token pasted into a dependency URL to make `pub get` or Gradle work is the easiest
+          # credential leak there is: it looks like configuration, and it is published the moment
+          # the branch is pushed. This file is excluded because it necessarily contains the
+          # patterns it searches for.
+          if grep -rInE '(gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,})' \
+              --exclude-dir=.git \
+              --exclude=security.yml \
+              .; then
+            echo "::error::A real access token is committed. Revoke it at github.com/settings/tokens first, then remove it; a later commit does not un-leak it."
+            exit 1
+          fi
+
+          # Credentials embedded in a dependency URL, checked in the files that are actually
+          # consumed by a build. Markdown is excluded because docs/INTEGRATION.md shows this
+          # exact anti-pattern in order to warn against it; a real token in a document is still
+          # caught by the rule above.
+          if grep -rInE 'https://[^/[:space:]"]+@[A-Za-z0-9.-]+/' \
+              --include='*.yaml' --include='*.yml' --include='*.properties' \
+              --include='*.gradle' --include='*.kts' --include='*.podspec' \
+              --exclude-dir=.git \
+              --exclude=security.yml \
+              .; then
+            echo "::error::A credential-bearing URL is committed. Authenticate git with a credential helper (gh auth login) instead of putting the token in the URL."
+            exit 1
+          fi
+
       - name: No TLS bypass
         run: |
           # An SDK that ships an SSL bypass ships it to every application that embeds it.

@@ -2,17 +2,18 @@
 #
 # Publishes the Android SDK to a local Maven repository inside the monorepo.
 #
-# OPTIONAL. The Flutter examples do not need this: their settings.gradle.kts includes
-# android/sdk as a Gradle project and builds it from source.
+# The artifact lands in android/build/local-maven, which both the Android samples
+# (android/settings.gradle.kts) and the Flutter plugin bridge (flutter/android/build.gradle) pick
+# up automatically once the directory exists — and which both prefer a genuinely published
+# artifact over, so this can never mask a real "not published yet" failure.
 #
-# This exists to exercise the other resolution path, the one a real consuming application will
-# use once the SDK is published to ARY's private Maven repository. Run it when you want to test
-# against a built artifact rather than against source:
+# Use it to build the Android samples against a real AAR with no credentials:
 #
 #     scripts/dev_publish_local.sh
+#     cd android && ./gradlew :sample-basic:assembleDebug
 #
-# The artifact lands in android/build/local-maven, which the Flutter plugin picks up
-# automatically when no local SDK project is included.
+# To do the same for the Flutter examples as well, use scripts/dev_offline_examples.sh, which
+# runs this and then points the examples at the working tree.
 
 set -euo pipefail
 

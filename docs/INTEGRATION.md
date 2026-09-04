@@ -31,6 +31,58 @@ iOS is the exception. Swift Package Manager authenticates with your GitHub accou
 the iOS side genuinely needs nothing in the project. Sign in once under
 **Xcode › Settings › Accounts**.
 
+### Never put the token in a tracked file
+
+Whichever route you pick, the credential goes somewhere git does not track. The two places that
+look like configuration but are not are the ones to avoid:
+
+```yaml
+# WRONG — pubspec.yaml is committed, so this publishes the token on the next push.
+ary_push:
+  git:
+    url: https://ghp_xxxxxxxxxxxx@github.com/arysoftware/ary-push-sdk.git
+```
+
+```properties
+# WRONG — the repository's own gradle.properties is committed too.
+aryGithubToken=ghp_xxxxxxxxxxxx
+```
+
+Put it in one of these instead:
+
+| What needs it | Where it goes |
+| --- | --- |
+| Gradle | `~/.gradle/gradle.properties` — outside every repository |
+| Gradle on CI | `ORG_GRADLE_PROJECT_aryGithubToken` from a secret |
+| `git` and `flutter pub get` | A credential helper: `gh auth login`, or `git config --global credential.helper manager` on Windows |
+
+If a token does reach a commit, **revoke it first** at
+[github.com/settings/tokens](https://github.com/settings/tokens). Removing it in a later commit
+does not help: the old commit still contains it, and on a pushed branch it has already left your
+machine. Rewriting history is worth doing afterwards, but revocation is what actually closes the
+hole.
+
+`.github/workflows/security.yml` fails the build on any committed token or credential-bearing
+URL, so this is caught on the branch rather than discovered later.
+
+### Building the examples in this repository
+
+The examples resolve the SDK exactly as an application does, so until it is published they need
+the same access an application would. To build them with no GitHub access at all:
+
+```bash
+scripts/dev_offline_examples.sh
+```
+
+That publishes the Android SDK to `android/build/local-maven` — which the samples pick up
+automatically, while still preferring a genuinely published artifact — and points the Flutter
+examples at the working tree through a git-ignored `pubspec_overrides.yaml`. Undo it with
+`scripts/dev_offline_examples.sh --undo`.
+
+Open `android/` in Android Studio, never `android/sample-basic`. The samples are modules of that
+build; opening one directly makes Gradle treat it as the default project and IDE sync fails with
+`Task 'prepareKotlinBuildScriptModel' not found in project ':sample-basic'`.
+
 ## Publishing (maintainers, once per release)
 
 Nothing resolves until the artifact exists and the tag is pushed.

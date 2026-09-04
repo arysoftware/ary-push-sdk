@@ -22,10 +22,14 @@ dependencies:
   #
   # That is what CI does, so a change is exercised against the working tree before it is ever
   # published. pubspec_overrides.yaml is git-ignored and never ships.
+  # Never put a token in this URL: pubspec.yaml is committed, so a token written here ships with
+  # the repository. Authenticate git once instead (`gh auth login`, or
+  # `git config --global credential.helper manager`).
+  #
+  # Add `ref: v1.0.0` below once that tag exists, to pin the example to a release.
   ary_push:
     git:
       url: https://github.com/arysoftware/ary-push-sdk.git
-      ref: v1.0.0
       path: flutter
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
