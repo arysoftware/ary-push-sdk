@@ -4,6 +4,7 @@ import com.ary.push.api.ApiResult
 import com.ary.push.model.Installation
 import com.ary.push.model.PushEvent
 import com.ary.push.model.PushProvider
+import com.ary.push.model.Segment
 
 /**
  * Records backend calls and returns scripted results.
@@ -20,6 +21,9 @@ internal class FakePushBackend : PushBackend {
     private val scripted = ArrayDeque<ApiResult<Unit>>()
 
     var default: ApiResult<Unit> = ApiResult.Success(Unit, statusCode = 200)
+
+    /** Segments handed back by [getSegments]. */
+    var scriptedSegments: List<Segment> = emptyList()
 
     /** When set, the backend throws instead of returning, to prove the SDK survives it. */
     var throwOnCall: Throwable? = null
@@ -59,6 +63,12 @@ internal class FakePushBackend : PushBackend {
 
     override suspend fun updateNotificationPermission(installationId: String, enabled: Boolean) =
         next("permission:$enabled")
+
+    override suspend fun getSegments(installationId: String): ApiResult<List<Segment>> {
+        calls += "segments"
+        throwOnCall?.let { throw it }
+        return ApiResult.Success(scriptedSegments, statusCode = 200)
+    }
 
     override suspend fun trackEvents(installationId: String, events: List<PushEvent>) =
         next("events:${events.size}")

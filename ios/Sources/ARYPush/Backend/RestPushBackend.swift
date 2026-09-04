@@ -126,6 +126,32 @@ final class RestPushBackend: PushBackend {
         )
     }
 
+    func getSegments(installationId: String) async -> ApiResult<[Segment]> {
+        await client.get(path: "(Path.installations)/(installationId)/segments") { data in
+            Self.parseSegments(data)
+        }
+    }
+
+    /// Parses the segments payload.
+    ///
+    /// Accepts either a bare array or an object with a `segments` key, because a gateway that
+    /// wraps collection responses is common and neither shape is worth failing over. An entry
+    /// without an id is skipped rather than failing the whole response: one malformed segment
+    /// should not cost the caller the rest.
+    private static func parseSegments(_ data: Data) -> [Segment] {
+        let json = try? JSONSerialization.jsonObject(with: data)
+        let entries: [[String: Any]]
+        if let array = json as? [[String: Any]] {
+            entries = array
+        } else if let wrapper = json as? [String: Any],
+                  let array = wrapper["segments"] as? [[String: Any]] {
+            entries = array
+        } else {
+            return []
+        }
+        return entries.compactMap(Segment.from(json:))
+    }
+
     func trackEvents(installationId: String, events: [PushEvent]) async -> ApiResult<Void> {
         guard !events.isEmpty else { return .success((), statusCode: 200) }
         let body: [String: Any] = [

@@ -5,6 +5,9 @@ import com.ary.push.internal.PushCore
 import com.ary.push.internal.log.PushLogger
 import com.ary.push.model.PushNotification
 import com.ary.push.model.PushPermissionStatus
+import com.ary.push.model.Segment
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -229,6 +232,43 @@ public object ARYPush {
     @JvmStatic
     public fun getTags(): Map<String, String> =
         requireCore("getTags")?.tagManager?.tags ?: emptyMap()
+
+    // ------------------------------------------------------------------ segments
+
+    /**
+     * Reads the segments this installation currently belongs to.
+     *
+     * Segments are groups the backend computes from the tags, user and device attributes the SDK
+     * reports. "Premium Pakistan Users" is `subscription == premium AND country == PK`, defined
+     * once on the server rather than compiled into every app, because that rule changes far more
+     * often than an app ships.
+     *
+     * Read-only by design: to change which segments a device lands in, change its tags.
+     *
+     * [callback] runs on the main thread exactly once. An unreachable backend, or no backend at
+     * all, yields an empty list rather than an error.
+     */
+    @JvmStatic
+    public fun getSegments(callback: (List<Segment>) -> Unit) {
+        val core = requireCore("getSegments") ?: run { callback(emptyList()); return }
+        core.fetchSegmentsAsync(callback)
+    }
+
+    /** Suspending form of [getSegments]. */
+    @JvmStatic
+    public suspend fun getSegments(): List<Segment> = suspendCancellableCoroutine { continuation ->
+        val core = requireCore("getSegments")
+        if (core == null) {
+            continuation.resume(emptyList())
+        } else {
+            core.fetchSegmentsAsync { segments -> continuation.resume(segments) }
+        }
+    }
+
+    /** True when this installation is in the named segment. Matches on name or id. */
+    @JvmStatic
+    public suspend fun isInSegment(name: String): Boolean =
+        getSegments().any { it.name.equals(name, ignoreCase = true) || it.id == name }
 
     // ------------------------------------------------------------------ topics
 

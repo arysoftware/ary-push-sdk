@@ -4,6 +4,7 @@ import com.ary.push.api.ApiResult
 import com.ary.push.model.Installation
 import com.ary.push.model.PushEvent
 import com.ary.push.model.PushProvider
+import com.ary.push.model.Segment
 
 /**
  * The backend used when an application configures no server.
@@ -51,6 +52,10 @@ public object NoopPushBackend : PushBackend {
         installationId: String,
         enabled: Boolean
     ): ApiResult<Unit> = ok
+
+    override suspend fun getSegments(installationId: String): ApiResult<List<Segment>> =
+        // No server, so nothing computes membership. An empty list is the truthful answer.
+        ApiResult.Success(emptyList(), statusCode = 200)
 
     override suspend fun trackEvents(
         installationId: String,

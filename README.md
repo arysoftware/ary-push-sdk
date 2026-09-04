@@ -48,13 +48,44 @@ ary-push-sdk/
 
 ## Quick start
 
-| Platform | Add dependency | Initialize |
-| --- | --- | --- |
-| Android | `implementation("com.ary:ary-push:1.0.0")` | `ARYPush.initialize(this)` |
-| iOS | Private SPM package, `.upToNextMajor(from: "1.0.0")` | `ARYPush.initialize()` |
-| Flutter | Private git dependency, `ref: v1.0.0`, `path: flutter` | `await ARYPush.initialize()` |
+Everything is fetched from this repository. Tag a release first (`git tag v1.0.0 && git push
+origin v1.0.0`), then:
 
-Full walkthrough: [docs/QUICK_START.md](docs/QUICK_START.md).
+**Android** — `settings.gradle.kts`, then the dependency:
+
+```kotlin
+maven { url = uri("https://jitpack.io") }
+implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+```
+
+```kotlin
+ARYPush.initialize(this)
+```
+
+**iOS** — Xcode › Add Package Dependencies › `https://github.com/arysoftware/ary-push-sdk`
+
+```swift
+ARYPush.initialize()
+```
+
+**Flutter** — `pubspec.yaml`, and nothing else:
+
+```yaml
+dependencies:
+  ary_push:
+    git:
+      url: https://github.com/arysoftware/ary-push-sdk.git
+      ref: v1.0.0
+      path: flutter
+```
+
+```dart
+await ARYPush.initialize();
+```
+
+The Flutter plugin carries both native SDKs, so no Gradle or Podfile changes are needed.
+
+Complete steps for all three: [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 ## Documentation
 

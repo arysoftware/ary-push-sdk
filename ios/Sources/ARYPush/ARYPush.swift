@@ -214,6 +214,44 @@ public extension ARYPush {
     }
 }
 
+// MARK: - Segments
+
+public extension ARYPush {
+
+    /// Reads the segments this installation currently belongs to.
+    ///
+    /// Segments are groups the backend computes from the tags, user and device attributes the
+    /// SDK reports. "Premium Pakistan Users" is `subscription == premium AND country == PK`,
+    /// defined once on the server rather than compiled into every app, because that rule changes
+    /// far more often than an app ships.
+    ///
+    /// Read-only by design: to change which segments a device lands in, change its tags.
+    ///
+    /// `completion` runs on the main queue exactly once. An unreachable backend, or no backend
+    /// at all, yields an empty list rather than an error.
+    static func getSegments(_ completion: @escaping ([Segment]) -> Void) {
+        guard let core = core("getSegments") else {
+            DispatchQueue.main.async { completion([]) }
+            return
+        }
+        core.fetchSegments(completion: completion)
+    }
+
+    /// Async form of ``getSegments(_:)``.
+    static func getSegments() async -> [Segment] {
+        await withCheckedContinuation { continuation in
+            getSegments { segments in continuation.resume(returning: segments) }
+        }
+    }
+
+    /// True when this installation is in the named segment. Matches on name or id.
+    static func isInSegment(_ name: String) async -> Bool {
+        await getSegments().contains {
+            $0.name.caseInsensitiveCompare(name) == .orderedSame || $0.id == name
+        }
+    }
+}
+
 // MARK: - Topics
 
 public extension ARYPush {

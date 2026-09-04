@@ -4,9 +4,12 @@ import com.ary.push.PushBackendConfig
 import com.ary.push.api.ApiResult
 import com.ary.push.api.IgnoreBody
 import com.ary.push.api.RestClient
+import com.ary.push.internal.PushJson
 import com.ary.push.model.Installation
 import com.ary.push.model.PushEvent
 import com.ary.push.model.PushProvider
+import com.ary.push.model.Segment
+import org.json.JSONObject
 
 /**
  * Maps push operations onto the ARY push API.
@@ -110,6 +113,11 @@ internal class RestPushBackend(
         parser = IgnoreBody
     )
 
+    override suspend fun getSegments(installationId: String): ApiResult<List<Segment>> =
+        client.get(path = "$PATH_INSTALLATIONS/$installationId/segments") { raw ->
+            parseSegments(raw)
+        }
+
     override suspend fun trackEvents(
         installationId: String,
         events: List<PushEvent>
@@ -130,6 +138,36 @@ internal class RestPushBackend(
 
     override fun close() {
         client.close()
+    }
+
+    /**
+     * Parses the segments payload.
+     *
+     * Accepts either a bare array or an object with a `segments` key, because a gateway that
+     * wraps collection responses is common and neither shape is worth failing over. An entry
+     * without an id or name is skipped rather than failing the whole response: one malformed
+     * segment should not cost the caller the rest.
+     */
+    private fun parseSegments(raw: String): List<Segment> {
+        val array = runCatching { org.json.JSONArray(raw) }.getOrNull()
+            ?: PushJson.parseObject(raw)?.optJSONArray("segments")
+            ?: return emptyList()
+
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                val json: JSONObject = array.optJSONObject(index) ?: continue
+                val id = json.optString("id").takeIf { it.isNotEmpty() } ?: continue
+                val name = json.optString("name").takeIf { it.isNotEmpty() } ?: id
+                add(
+                    Segment(
+                        id = id,
+                        name = name,
+                        description = json.optString("description").takeIf { it.isNotEmpty() },
+                        joinedAt = json.optLong("joinedAt").takeIf { it > 0 }
+                    )
+                )
+            }
+        }
     }
 
     private companion object {

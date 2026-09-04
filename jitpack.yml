@@ -1,0 +1,23 @@
+# JitPack build configuration.
+#
+# JitPack looks for a build at the repository root, but this is a monorepo whose Android build
+# lives in android/. So the install step is explicit: build the SDK and install it into the
+# local Maven repository, which is where JitPack collects artifacts from.
+#
+# The coordinates are overridden to JitPack's convention. JitPack serves everything under
+# com.github.<owner>, so the artifact a consuming project asks for is:
+#
+#     com.github.arysoftware:ary-push-sdk:<tag>
+#
+# rather than the com.ary:ary-push coordinate used when publishing to GitHub Packages or a
+# self-hosted repository. Same AAR, two names.
+
+jdk:
+  - openjdk21
+
+install:
+  - cd android
+  - ./gradlew --no-daemon :sdk:publishReleasePublicationToMavenLocal
+      -ParyPush.group=com.github.arysoftware
+      -ParyPush.artifact=ary-push-sdk
+      -ParyPush.version=$VERSION

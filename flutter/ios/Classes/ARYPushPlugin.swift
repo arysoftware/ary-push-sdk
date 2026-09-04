@@ -1,4 +1,8 @@
+// Vendored into this pod by the podspec prepare_command in a Flutter build, and a separate
+// module when the SDK is consumed directly. canImport covers both without two source files.
+#if canImport(ARYPush)
 import ARYPush
+#endif
 import Flutter
 import UIKit
 
@@ -192,6 +196,12 @@ extension ARYPushPlugin {
 
         case "unsubscribeFromTopic":
             result(ARYPush.unsubscribeFromTopic(arguments["topic"] as? String ?? ""))
+
+        case "getSegments":
+            // Answered asynchronously: membership is read from the backend.
+            ARYPush.getSegments { segments in
+                result(segments.map { $0.toDictionary() })
+            }
 
         case "getSubscribedTopics":
             result(Array(ARYPush.getSubscribedTopics()).sorted())

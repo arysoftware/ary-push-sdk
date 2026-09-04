@@ -71,6 +71,20 @@ allprojects {
         google()
         mavenCentral()
 
+        // JitPack builds the SDK straight from its GitHub tag, so a consuming application needs
+        // no publishing step and no repository declaration of its own. Declared here, in the
+        // plugin, which is the whole point: the app only edits pubspec.yaml.
+        maven {
+            name = "jitpack"
+            url = uri("https://jitpack.io")
+            // A private repository needs a JitPack auth token. Public ones need nothing.
+            val jitpackToken = providers.gradleProperty("aryJitpackToken").orNull
+                ?: System.getenv("ARY_JITPACK_TOKEN")
+            if (!jitpackToken.isNullOrBlank()) {
+                credentials { username = jitpackToken }
+            }
+        }
+
         if (!aryGithubToken.isNullOrBlank()) {
             maven {
                 name = "aryGithubPackages"
@@ -136,6 +150,22 @@ kotlin {
 //     android/sdk and the next build picks it up.
 //  2. The Maven artifact `com.ary:ary-push`, once the SDK is published to ARY's private
 //     repository. This is what a real consuming application will use.
+// Where the native SDK comes from, in priority order:
+//
+//   1. A Gradle project at `:ary-push-sdk`, when the host build includes the SDK from a local
+//      path. Used while developing the SDK itself.
+//   2. Otherwise the published artifact. The default coordinate is JitPack's, which is what
+//      makes a Flutter integration a single pubspec entry: JitPack builds the AAR from the
+//      GitHub tag, and the repository below is declared here rather than in every application.
+//
+// Override the coordinate from android/gradle.properties to use GitHub Packages or a
+// self-hosted repository instead:
+//
+//     arySdkCoordinate=com.ary:ary-push:1.0.0
+//
+val arySdkCoordinate: String = providers.gradleProperty("arySdkCoordinate")
+    .getOrElse("com.github.$aryGithubOwner:$aryGithubRepo:1.0.0")
+
 val localSdkProject = rootProject.findProject(":ary-push-sdk")
 
 dependencies {
@@ -143,37 +173,37 @@ dependencies {
         logger.info("ARY Push SDK: building against the local SDK at ${localSdkProject.projectDir}")
         implementation(localSdkProject)
     } else {
-        implementation("com.ary:ary-push:1.0.0")
+        implementation(arySdkCoordinate)
     }
 }
 
-// Without any source, resolution fails with a bare "Could not find com.ary:ary-push", which says
-// nothing about how to fix it. Say it here, before the failure happens.
-if (localSdkProject == null && aryGithubToken.isNullOrBlank() &&
-    aryMavenUrl.isNullOrBlank() && !aryPushLocalRepo.isDirectory
+// A private repository needs a JitPack auth token, and the failure without one is an opaque
+// "Could not find". Say so up front rather than after the fact.
+if (localSdkProject == null &&
+    arySdkCoordinate.startsWith("com.github.") &&
+    providers.gradleProperty("aryJitpackToken").orNull.isNullOrBlank() &&
+    System.getenv("ARY_JITPACK_TOKEN").isNullOrBlank()
 ) {
-    logger.lifecycle(
+    logger.info(
         """
+        ARY Push SDK: resolving $arySdkCoordinate from JitPack with no auth token.
+        That is correct for a public repository. If ary-push-sdk is private, add to
+        android/gradle.properties:
 
-        ARY Push SDK: the native Android SDK could not be located. Pick one:
+            aryJitpackToken=<token from jitpack.io/private>
 
-          1. GitHub Packages (recommended). In android/gradle.properties:
+        Alternatives, if you would rather not use JitPack:
 
-                 aryGithubUser=<your github username>
-                 aryGithubToken=<a token with read:packages>
+            arySdkCoordinate=com.ary:ary-push:1.0.0
+            aryGithubUser=<username>
+            aryGithubToken=<token with read:packages>
 
-          2. A git submodule, if you would rather not publish. In android/settings.gradle.kts:
+        or include the SDK from a local checkout in android/settings.gradle.kts:
 
-                 include(":ary-push-sdk")
-                 project(":ary-push-sdk").projectDir =
-                     file("../ary-push-sdk/android/sdk")
-
-          3. A self-hosted Maven repository:
-
-                 aryMavenUrl=https://maven.ary.internal/releases
+            include(":ary-push-sdk")
+            project(":ary-push-sdk").projectDir = file("../ary-push-sdk/android/sdk")
 
         See docs/INTEGRATION.md.
-
         """.trimIndent()
     )
 }

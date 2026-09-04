@@ -160,6 +160,40 @@ class ARYPush {
   static Future<Map<String, String>> getTags() =>
       _platform.invokeStringMap('getTags');
 
+  // ---------------------------------------------------------------- segments
+
+  /// Reads the segments this installation currently belongs to.
+  ///
+  /// Segments are groups the backend computes from the tags, user and device attributes the SDK
+  /// reports. "Premium Pakistan Users" is `subscription == premium AND country == PK`, defined
+  /// once on the server rather than compiled into every app, because that rule changes far more
+  /// often than an app ships.
+  ///
+  /// Read-only by design: to change which segments a device lands in, change its tags.
+  ///
+  /// An unreachable backend, or no backend at all, yields an empty list rather than throwing.
+  static Future<List<Segment>> getSegments() async {
+    final List<Object?>? result =
+        await _platform.invoke<List<Object?>>('getSegments');
+    if (result == null) {
+      return const <Segment>[];
+    }
+    return result
+        .whereType<Map<Object?, Object?>>()
+        .map(Segment.fromMap)
+        .toList(growable: false);
+  }
+
+  /// Whether this installation is in the named segment. Matches on name or id.
+  static Future<bool> isInSegment(String name) async {
+    final List<Segment> segments = await getSegments();
+    return segments.any(
+      (Segment segment) =>
+          segment.name.toLowerCase() == name.toLowerCase() ||
+          segment.id == name,
+    );
+  }
+
   // ---------------------------------------------------------------- topics
 
   /// Subscribes this device to a topic.

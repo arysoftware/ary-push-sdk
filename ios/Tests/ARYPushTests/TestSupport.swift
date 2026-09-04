@@ -83,6 +83,17 @@ final class FakePushBackend: PushBackend, @unchecked Sendable {
         next("permission:\(enabled)")
     }
 
+    /// Segments handed back by `getSegments`.
+    var scriptedSegments: [Segment] = []
+
+    func getSegments(installationId: String) async -> ApiResult<[Segment]> {
+        lock.lock()
+        calls.append("segments")
+        let segments = scriptedSegments
+        lock.unlock()
+        return .success(segments, statusCode: 200)
+    }
+
     func trackEvents(installationId: String, events: [PushEvent]) async -> ApiResult<Void> {
         next("events:\(events.count)")
     }

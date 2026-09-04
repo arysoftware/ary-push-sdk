@@ -60,6 +60,20 @@ association and nothing else: the installation, the token and the device registr
 Coalesced: consecutive writes become one request. `getTags()` reads local storage, so it is
 correct offline and immediately after a write.
 
+## Segments
+
+| | |
+| --- | --- |
+| Android | `getSegments { segments -> }`, `getSegments()` (suspend), `isInSegment(name)` |
+| iOS | `getSegments { segments in }`, `await getSegments()`, `await isInSegment(_:)` |
+| Flutter | `await getSegments()`, `await isInSegment(name)` |
+
+Read-only. Segments are groups the backend computes from tags, user identity and device
+attributes; the SDK never evaluates a rule. To change membership, change tags.
+
+`Segment` carries `id`, `name`, an optional `description` and an optional `joinedAt`. An
+unreachable backend, or no backend at all, yields an empty list rather than an error.
+
 ## Topics
 
 | | |

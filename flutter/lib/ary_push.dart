@@ -21,5 +21,5 @@ export 'src/config.dart'
         ForegroundDisplayPolicy,
         PushLogLevel;
 export 'src/models.dart'
-    show PushNotification, PushPermissionStatus, PushProvider;
+    show PushNotification, PushPermissionStatus, PushProvider, Segment;
 export 'src/exceptions.dart' show ARYPushException;

@@ -30,17 +30,8 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
-  # The native SDK the ary_push plugin bridges to.
-  #
-  # A consuming application resolves this from ARY's private spec repository, or
-  # straight from the private Git repository:
-  #
-  #   pod 'ARYPush', :git => 'git@github.com:arysoftware/ary-push-sdk.git', :tag => 'v1.0.0'
-  #
-  # Inside this monorepo it is resolved from the source tree, so a change to the Swift SDK is
-  # picked up by the next build with no publishing step.
-  pod 'ARYPush', :path => '../../../ios'
-
+  # No ARYPush pod here on purpose. The ary_push plugin vendors the native SDK itself, so a
+  # Flutter application integrates with a pubspec entry and nothing else.
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 

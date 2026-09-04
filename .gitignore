@@ -48,3 +48,6 @@ flutter/*/ios/Flutter/flutter_export_environment.sh
 flutter/*/ios/Flutter/ephemeral/
 flutter/*/ios/Runner/GeneratedPluginRegistrant.*
 flutter/*/android/local.properties
+
+# Copied into the Flutter plugin pod by its prepare_command; the originals live in ios/Sources.
+flutter/ios/Classes/ARYPushCore/

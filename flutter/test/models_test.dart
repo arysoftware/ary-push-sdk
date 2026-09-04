@@ -2,6 +2,8 @@ import 'package:ary_push/ary_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  _segmentTests();
+
   group('PushNotification.fromMap', () {
     test('reads every field the native SDKs send', () {
       final PushNotification notification = PushNotification.fromMap(
@@ -142,6 +144,43 @@ void main() {
       expect(PushProvider.fromWire('apns'), PushProvider.apns);
       expect(PushProvider.fromWire('fcm'), PushProvider.fcm);
       expect(PushProvider.fromWire(null), PushProvider.fcm);
+    });
+  });
+}
+
+void _segmentTests() {
+  group('Segment', () {
+    test('parses a full backend payload', () {
+      final Segment segment = Segment.fromMap(const <Object?, Object?>{
+        'id': 'seg_premium_pk',
+        'name': 'Premium Pakistan Users',
+        'description': 'subscription == premium AND country == PK',
+        'joinedAt': 1700000000000,
+      });
+
+      expect(segment.id, 'seg_premium_pk');
+      expect(segment.name, 'Premium Pakistan Users');
+      expect(segment.description, contains('premium'));
+      expect(
+          segment.joinedAt, DateTime.fromMillisecondsSinceEpoch(1700000000000));
+    });
+
+    test('falls back to the id when the backend omits a name', () {
+      final Segment segment =
+          Segment.fromMap(const <Object?, Object?>{'id': 'seg_1'});
+
+      expect(segment.name, 'seg_1');
+      expect(segment.description, isNull);
+      expect(segment.joinedAt, isNull);
+    });
+
+    test('equality is keyed on id and name', () {
+      const Segment a = Segment(id: 's1', name: 'Premium');
+      const Segment b = Segment(id: 's1', name: 'Premium');
+      const Segment c = Segment(id: 's2', name: 'Premium');
+
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
     });
   });
 }

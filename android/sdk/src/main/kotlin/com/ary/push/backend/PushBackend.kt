@@ -4,6 +4,7 @@ import com.ary.push.api.ApiResult
 import com.ary.push.model.Installation
 import com.ary.push.model.PushEvent
 import com.ary.push.model.PushProvider
+import com.ary.push.model.Segment
 
 /**
  * Everything the SDK needs from a server, expressed without any reference to HTTP.
@@ -68,6 +69,14 @@ public interface PushBackend {
         installationId: String,
         enabled: Boolean
     ): ApiResult<Unit>
+
+    /**
+     * Reads the segments the backend has computed for this installation.
+     *
+     * Read-only by design: the SDK reports tags and identity, the backend decides membership.
+     * See [com.ary.push.model.Segment].
+     */
+    public suspend fun getSegments(installationId: String): ApiResult<List<Segment>>
 
     /** Submits a batch of push-related events. */
     public suspend fun trackEvents(

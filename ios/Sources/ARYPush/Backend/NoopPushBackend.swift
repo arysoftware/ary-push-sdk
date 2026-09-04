@@ -49,6 +49,11 @@ public final class NoopPushBackend: PushBackend {
         enabled: Bool
     ) async -> ApiResult<Void> { ok }
 
+    public func getSegments(installationId: String) async -> ApiResult<[Segment]> {
+        // No server, so nothing computes membership. An empty list is the truthful answer.
+        .success([], statusCode: 200)
+    }
+
     public func trackEvents(
         installationId: String,
         events: [PushEvent]

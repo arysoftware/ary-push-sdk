@@ -171,3 +171,63 @@ enum PushProvider {
   static PushProvider fromWire(String? value) =>
       value == 'apns' ? PushProvider.apns : PushProvider.fcm;
 }
+
+/// A backend-defined group this installation belongs to.
+///
+/// Segments are computed on the server from the tags, user identity and device attributes the
+/// SDK reports. The SDK never evaluates a segment rule, and this type is read-only for exactly
+/// that reason: "Premium Pakistan Users" means `subscription == premium AND country == PK`
+/// today and something else next quarter, and a rule compiled into a shipped app cannot follow
+/// that.
+///
+/// The flow is one-directional:
+///
+/// ```
+/// addTags(...)  ->  backend recomputes membership  ->  getSegments() reads it back
+/// ```
+///
+/// To change which segments a device lands in, change its tags.
+@immutable
+class Segment {
+  /// Creates a segment. Applications receive these from the SDK rather than building them.
+  const Segment({
+    required this.id,
+    required this.name,
+    this.description,
+    this.joinedAt,
+  });
+
+  /// Stable backend identifier.
+  final String id;
+
+  /// Human-readable name as defined on the backend.
+  final String name;
+
+  /// Optional description, when the backend supplies one.
+  final String? description;
+
+  /// When this installation entered the segment, when the backend reports it.
+  final DateTime? joinedAt;
+
+  /// Reconstructs a segment from the platform channel payload.
+  factory Segment.fromMap(Map<Object?, Object?> map) {
+    final Object? joined = map['joinedAt'];
+    return Segment(
+      id: map['id'] as String? ?? '',
+      name: map['name'] as String? ?? (map['id'] as String? ?? ''),
+      description: map['description'] as String?,
+      joinedAt:
+          joined is int ? DateTime.fromMillisecondsSinceEpoch(joined) : null,
+    );
+  }
+
+  @override
+  String toString() => 'Segment($id, $name)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is Segment && other.id == id && other.name == name;
+
+  @override
+  int get hashCode => Object.hash(id, name);
+}

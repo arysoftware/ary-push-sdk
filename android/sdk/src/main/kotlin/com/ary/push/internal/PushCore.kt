@@ -348,6 +348,31 @@ internal class PushCore private constructor(
 
     suspend fun pushToken(): String? = tokenManager.fetchToken()
 
+    /**
+     * Reads segment membership from the backend, answering on the main thread exactly once.
+     *
+     * Deliberately not cached: membership changes on the server whenever tags change, and a
+     * stale cached list is worse than a fresh call the caller chose to make.
+     */
+    fun fetchSegmentsAsync(callback: (List<com.ary.push.model.Segment>) -> Unit) {
+        scope.launch {
+            val installationId = installationManager.installationId
+            val result = runCatching { backend.getSegments(installationId) }
+                .getOrElse { error ->
+                    PushLogger.e(error) { "Segment lookup threw" }
+                    null
+                }
+            val segments = result?.getOrNull().orEmpty()
+            if (result != null && !result.isSuccess) {
+                PushLogger.w { "Segment lookup failed; reporting an empty list" }
+            }
+            withContext(Dispatchers.Main) {
+                runCatching { callback(segments) }
+                    .onFailure { PushLogger.e(it) { "Segment callback threw" } }
+            }
+        }
+    }
+
     /** Callback form of [pushToken], answering on the main thread exactly once. */
     fun fetchTokenAsync(callback: (String?) -> Unit) {
         scope.launch {

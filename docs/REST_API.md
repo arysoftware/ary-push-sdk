@@ -182,6 +182,40 @@ Updates mutable installation state. Currently only reachability.
 Sent when the SDK notices the permission state changed, including the case where the user turned
 notifications off in Settings, which the OS never announces.
 
+## GET /v1/installations/{installationId}/segments
+
+Returns the segments the backend has computed for this installation. The only read endpoint the
+SDK calls, and the only one that is not idempotent-by-necessity because it changes nothing.
+
+```json
+[
+  {
+    "id": "seg_premium_pk",
+    "name": "Premium Pakistan Users",
+    "description": "subscription == premium AND country == PK",
+    "joinedAt": 1730000000000
+  }
+]
+```
+
+An object wrapper is also accepted, for gateways that wrap collections:
+
+```json
+{ "segments": [ ... ] }
+```
+
+`description` and `joinedAt` are optional. An entry without an `id` is skipped by the client
+rather than failing the whole response, so one malformed segment does not cost the caller the
+rest.
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Membership returned, possibly empty |
+| 404 | Unknown installation. The SDK re-registers and retries |
+
+The SDK does not cache this: membership changes on the server whenever tags change, and a stale
+cached list is worse than a call the caller chose to make.
+
 ## POST /v1/events
 
 Submits a batch of push-related events.

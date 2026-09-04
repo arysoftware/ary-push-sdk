@@ -10,6 +10,22 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ## [Unreleased]
 
+### Added
+
+- **Segments.** `getSegments()` and `isInSegment()` on all three platforms, backed by
+  `GET /v1/installations/{id}/segments`. Read-only: the backend computes membership from tags,
+  the SDK reports attributes and reads the answer. A segment rule changes far more often than an
+  app ships, so it stays on the server.
+- **JitPack distribution.** `jitpack.yml` builds the Android AAR from a Git tag, so an
+  application adds `com.github.arysoftware:ary-push-sdk:<tag>` with no publishing step.
+- **GitHub Packages publishing** as the alternative for private repositories, where JitPack
+  requires a paid plan.
+- **Zero-configuration Flutter integration.** The plugin declares the JitPack repository and the
+  SDK coordinate in its own Gradle build, and its podspec vendors the Swift SDK into its pod, so
+  a Flutter application integrates with one pubspec entry and no native build changes.
+- `scripts/set_repository.sh` to point the whole repository at a different GitHub home in one
+  pass.
+
 ## [1.0.0] - 2026-09-03
 
 ### Added

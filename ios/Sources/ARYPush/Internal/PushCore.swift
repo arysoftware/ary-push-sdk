@@ -499,6 +499,23 @@ extension PushCore {
         }
     }
 
+    /// Reads segment membership from the backend.
+    ///
+    /// Deliberately not cached: membership changes on the server whenever tags change, and a
+    /// stale cached list is worse than a fresh call the caller chose to make.
+    func fetchSegments(completion: @escaping ([Segment]) -> Void) {
+        let installationId = installationManager.installationId
+        let currentBackend = backend
+        Task {
+            let result = await currentBackend.getSegments(installationId: installationId)
+            if !result.isSuccess {
+                PushLogger.warn("Segment lookup failed; reporting an empty list")
+            }
+            let segments = result.value ?? []
+            await MainActor.run { completion(segments) }
+        }
+    }
+
     /// Assembles the record the backend stores for this device.
     func buildInstallation() -> Installation {
         configLock.lock()

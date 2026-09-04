@@ -45,6 +45,11 @@ public protocol PushBackend: AnyObject {
         enabled: Bool
     ) async -> ApiResult<Void>
 
+    /// Reads the segments the backend has computed for this installation.
+    ///
+    /// Read-only by design: the SDK reports tags and identity, the backend decides membership.
+    func getSegments(installationId: String) async -> ApiResult<[Segment]>
+
     /// Submits a batch of push-related events.
     func trackEvents(installationId: String, events: [PushEvent]) async -> ApiResult<Void>
 

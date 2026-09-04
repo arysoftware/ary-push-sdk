@@ -79,8 +79,12 @@ Tags on an installation        Segment "Premium Pakistan Users"
   language     = en
 ```
 
-Membership is recomputed by the backend when tags change. The SDK is never told which segments a
-device belongs to, and does not need to be.
+Membership is recomputed by the backend when tags change. The SDK never evaluates a rule, but it
+can read the result: `GET /v1/installations/{id}/segments` backs `ARYPush.getSegments()`, so an
+application can branch on membership without duplicating the rule.
+
+That read is a convenience, not a contract the campaign system depends on. Targeting happens
+entirely server-side.
 
 ## Campaigns
 
