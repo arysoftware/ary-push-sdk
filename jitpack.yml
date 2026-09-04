@@ -19,9 +19,16 @@
 jdk:
   - openjdk21
 
+# One command, not a `cd` followed by a build: whether each list entry runs in its own shell is
+# not something to depend on, and a `cd` that silently did not carry would build the wrong
+# directory.
+#
+# chmod first because this repository is developed on Windows, where git records no executable
+# bit unless it is set explicitly. The bit is committed, and this makes the build survive losing
+# it again — a lost bit fails here as "./gradlew: Permission denied", exit 126, which reads like
+# a JitPack problem rather than a file mode.
 install:
-  - cd android
-  - ./gradlew --no-daemon :sdk:publishReleasePublicationToMavenLocal
+  - cd android && chmod +x ./gradlew && ./gradlew --no-daemon :sdk:publishReleasePublicationToMavenLocal
       -ParyPush.group=com.github.arysoftware
       -ParyPush.artifact=ary-push-sdk
       -ParyPush.version=$VERSION
