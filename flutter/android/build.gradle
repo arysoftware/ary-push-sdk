@@ -53,8 +53,17 @@ def aryMavenUrl = project.findProperty('aryMavenUrl') ?: System.getenv('ARY_MAVE
 def aryMavenUser = project.findProperty('aryMavenUser') ?: System.getenv('ARY_MAVEN_USER')
 def aryMavenPassword = project.findProperty('aryMavenPassword') ?: System.getenv('ARY_MAVEN_PASSWORD')
 
-// Monorepo development: the SDK published by scripts/dev_publish_local.sh.
+// The SDK published by scripts/dev_publish_local.sh.
+//
+// The relative form is correct when this plugin is consumed by path, from the working tree. It
+// is wrong when the plugin came from the pub cache, because the cache holds a clone rather than
+// the tree that was built -- so an absolute path can be given instead, from android/gradle.properties:
+//
+//     aryPushLocalRepo=D:/Underdev/Push Client/android/build/local-maven
 def aryPushLocalRepo = file('../../android/build/local-maven')
+if (project.hasProperty('aryPushLocalRepo')) {
+    aryPushLocalRepo = file(project.property('aryPushLocalRepo'))
+}
 
 // A local SDK module, when the host build includes one. Preferred over any artifact.
 def localSdkProject = rootProject.findProject(':ary-push-sdk')
@@ -164,11 +173,20 @@ dependencies {
     }
 }
 
-// The failure without credentials is an opaque "Could not find" that lists every repository
-// except the one holding the artifact. Say what to do before that happens.
-if (localSdkProject == null && !aryGithubToken && !aryJitpackToken && !aryMavenUrl
-        && !aryPushLocalRepo.isDirectory()) {
-    logger.lifecycle """
+// Fail here, at configuration time, rather than letting the build reach
+// :app:checkDebugAarMetadata and report an opaque "Could not find com.ary:ary-push" that lists
+// every repository except the one holding it. Nothing in this build can supply the artifact, so
+// the only question is whether the developer is told why.
+//
+// A host that publishes the SDK to its own mirror, and declares that repository in its own
+// settings.gradle.kts rather than through any property here, is the one case this cannot see.
+// It opts out with aryPushSkipRepositoryCheck=true.
+def aryPushSkipRepositoryCheck =
+    project.findProperty('aryPushSkipRepositoryCheck')?.toString() == 'true'
+
+if (!aryPushSkipRepositoryCheck && localSdkProject == null && !aryGithubToken && !aryJitpackToken
+        && !aryMavenUrl && !aryPushLocalRepo.isDirectory()) {
+    throw new GradleException("""
 
 ARY Push SDK: no credentials configured for ${arySdkCoordinate}.
 
@@ -189,7 +207,19 @@ A private repository always needs authentication somewhere. Pick one:
          arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
          aryJitpackToken=<token from jitpack.io/private>
 
-See docs/INTEGRATION.md.
+  4. Nothing published yet, and you just want the examples to run. From the SDK repository:
 
-"""
+         scripts/dev_offline_examples.sh
+
+     That builds the SDK into android/build/local-maven and points the examples at the
+     working tree. To use that local build from an application outside the repository,
+     give the absolute path in android/gradle.properties instead:
+
+         aryPushLocalRepo=/absolute/path/to/ary-push-sdk/android/build/local-maven
+
+If this build gets the SDK from a repository declared in your own settings.gradle.kts,
+set aryPushSkipRepositoryCheck=true to bypass this check.
+
+See docs/INTEGRATION.md.
+""")
 }

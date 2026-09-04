@@ -79,6 +79,22 @@ automatically, while still preferring a genuinely published artifact — and poi
 examples at the working tree through a git-ignored `pubspec_overrides.yaml`. Undo it with
 `scripts/dev_offline_examples.sh --undo`.
 
+The `pubspec_overrides.yaml` part matters more than it looks. The Flutter plugin finds that local
+Maven repository by a path relative to itself, so it only resolves when the plugin is the working
+tree. Consumed as a git dependency the plugin lives in the pub cache, where that path does not
+exist. To use a local build from an application **outside** this repository, give the absolute
+path in that application's `android/gradle.properties`:
+
+```properties
+aryPushLocalRepo=/absolute/path/to/ary-push-sdk/android/build/local-maven
+```
+
+When the plugin can find no source for the native SDK at all, it now fails during configuration
+with these options spelled out, rather than letting the build run on to
+`:app:checkDebugAarMetadata` and report `Could not find com.ary:ary-push` against a repository
+list that never contained it. An application that gets the SDK from a repository declared in its
+own `settings.gradle.kts` sets `aryPushSkipRepositoryCheck=true` to bypass the check.
+
 Open `android/` in Android Studio, never `android/sample-basic`. The samples are modules of that
 build; opening one directly makes Gradle treat it as the default project and IDE sync fails with
 `Task 'prepareKotlinBuildScriptModel' not found in project ':sample-basic'`.
