@@ -18,8 +18,22 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
 
-        // The samples consume the published SDK, exactly as a real application does.
-        maven { url = uri("https://jitpack.io") }
+        // The samples consume the published SDK from GitHub Packages, exactly as a real
+        // application does. JitPack would need a paid plan for a private repository; GitHub
+        // Packages only needs a free token with read:packages.
+        //
+        // Put these in ~/.gradle/gradle.properties, never in the repository:
+        //     aryGithubUser=<github username>
+        //     aryGithubToken=<token with read:packages>
+        maven {
+            url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
+            credentials {
+                username = providers.gradleProperty("aryGithubUser").orNull
+                    ?: System.getenv("ARY_GITHUB_USER")
+                password = providers.gradleProperty("aryGithubToken").orNull
+                    ?: System.getenv("ARY_GITHUB_TOKEN")
+            }
+        }
     }
 }
 

@@ -49,7 +49,7 @@ kotlin {
 }
 
 dependencies {
-    // The published SDK, resolved from GitHub through JitPack, exactly as a real application
+    // The published SDK, resolved from GitHub Packages, exactly as a real application
     // consumes it. Nothing here is special-cased for living in the SDK repository.
     //
     // While working ON the SDK, build with -ParyPushLocal=true to compile against the module in
@@ -58,7 +58,7 @@ dependencies {
     if (providers.gradleProperty("aryPushLocal").getOrElse("false") == "true") {
         implementation(project(":sdk"))
     } else {
-        implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+        implementation("com.ary:ary-push:1.0.0")
     }
 
     implementation(libs.androidx.core)

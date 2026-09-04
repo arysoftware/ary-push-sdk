@@ -48,27 +48,34 @@ ary-push-sdk/
 
 ## Quick start
 
-Everything is fetched from this repository. Tag a release first (`git tag v1.0.0 && git push
-origin v1.0.0`), then:
+Publish once and tag (`scripts/release.sh 1.0.0`), then:
 
-**Android** — `settings.gradle.kts`, then the dependency:
+**Android** — a repository block in `settings.gradle.kts` plus the dependency:
 
 ```kotlin
-maven { url = uri("https://jitpack.io") }
-implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+maven {
+    url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
+    credentials {
+        username = providers.gradleProperty("aryGithubUser").orNull
+        password = providers.gradleProperty("aryGithubToken").orNull
+    }
+}
+implementation("com.ary:ary-push:1.0.0")
 ```
 
 ```kotlin
 ARYPush.initialize(this)
 ```
 
-**iOS** — Xcode › Add Package Dependencies › `https://github.com/arysoftware/ary-push-sdk`
+**iOS** — Xcode › Add Package Dependencies › `https://github.com/arysoftware/ary-push-sdk`.
+Nothing else.
 
 ```swift
 ARYPush.initialize()
 ```
 
-**Flutter** — `pubspec.yaml`, and nothing else:
+**Flutter** — `pubspec.yaml`, plus the same two credential properties in
+`~/.gradle/gradle.properties`:
 
 ```yaml
 dependencies:
@@ -83,9 +90,11 @@ dependencies:
 await ARYPush.initialize();
 ```
 
-The Flutter plugin carries both native SDKs, so no Gradle or Podfile changes are needed.
+The plugin declares the Maven repository and the SDK coordinate for you, so no Gradle or Podfile
+edits are needed — but a private repository still needs a `read:packages` token somewhere. A git
+submodule avoids the token entirely.
 
-Complete steps for all three: [docs/INTEGRATION.md](docs/INTEGRATION.md).
+Complete steps: [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 ## Documentation
 

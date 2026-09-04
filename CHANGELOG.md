@@ -16,13 +16,16 @@ three artifacts, so host applications only ever reason about one SDK version.
   `GET /v1/installations/{id}/segments`. Read-only: the backend computes membership from tags,
   the SDK reports attributes and reads the answer. A segment rule changes far more often than an
   app ships, so it stays on the server.
-- **JitPack distribution.** `jitpack.yml` builds the Android AAR from a Git tag, so an
-  application adds `com.github.arysoftware:ary-push-sdk:<tag>` with no publishing step.
-- **GitHub Packages publishing** as the alternative for private repositories, where JitPack
-  requires a paid plan.
-- **Zero-configuration Flutter integration.** The plugin declares the JitPack repository and the
-  SDK coordinate in its own Gradle build, and its podspec vendors the Swift SDK into its pod, so
-  a Flutter application integrates with one pubspec entry and no native build changes.
+- **GitHub Packages publishing**, the default distribution route. A free `read:packages` token
+  is all a consuming application needs.
+- **JitPack support** via `jitpack.yml`, for teams with a public repository. JitPack charges for
+  private repositories, so it is not the default.
+- **Flutter integration reduced to a pubspec entry plus two credential properties.** The plugin
+  declares the Maven repository on every project in the host build and names the SDK coordinate
+  itself, and its podspec vendors the Swift SDK into its own pod. It reaches into the root
+  project deliberately: Gradle resolves a dependency graph using the repositories of the
+  application module, not those of the module that declared the dependency, so a repository
+  declared only inside the plugin is never consulted.
 - `scripts/set_repository.sh` to point the whole repository at a different GitHub home in one
   pass.
 

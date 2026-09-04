@@ -1,36 +1,57 @@
 # Integrating the ARY Push SDK
 
-Everything is fetched from `github.com/arysoftware/ary-push-sdk`. No folder paths, no copying,
-no submodules.
+Everything is fetched from `github.com/arysoftware/ary-push-sdk`. No folder paths, no copying.
 
-| Platform | How you add it | One-time setup |
+| Platform | How you add it | Setup in your app |
 | --- | --- | --- |
-| **Android** | JitPack, from a tag | Add the JitPack repository |
+| **Android** | GitHub Packages | A repository block and two properties |
 | **iOS** | Swift Package Manager, from the URL | None |
-| **Flutter** | `pubspec.yaml` | **None at all** |
+| **Flutter** | `pubspec.yaml` | Two properties |
 
-Flutter is the shortest because the plugin carries the native SDKs with it: the Android side
-pulls the AAR from JitPack itself, and the iOS side vendors the Swift sources into its own pod.
-An app adds one dependency and writes no build configuration.
+## A private repository always needs authentication
 
-## First, a release has to exist
+There is no way around that, so decide where the credential lives:
 
-JitPack and Swift Package Manager both build from a Git tag. Nothing resolves until one is
-pushed:
+| Route | Cost | Credential |
+| --- | --- | --- |
+| **GitHub Packages** | Free | A classic token with `read:packages` |
+| **Git submodule** | Free | None. Git handles access |
+| **JitPack** | **Paid** for private repositories | A JitPack token |
+
+GitHub Packages is the default throughout this guide: it is the closest thing to consuming the
+repository directly, and the token it needs is free and read-only.
+
+> **Correcting an earlier version of this guide,** which claimed a Flutter integration needed no
+> native configuration. That was wrong. Gradle resolves a dependency graph using the repositories
+> of the **application** module, not those of the plugin that declared the dependency, so a
+> plugin cannot supply a credentialed repository entirely on your behalf. The plugin does declare
+> the repository for you; you still supply the two credential properties.
+
+iOS is the exception. Swift Package Manager authenticates with your GitHub account in Xcode, so
+the iOS side genuinely needs nothing in the project. Sign in once under
+**Xcode › Settings › Accounts**.
+
+## Publishing (maintainers, once per release)
+
+Nothing resolves until the artifact exists and the tag is pushed.
 
 ```bash
-git tag -a v1.0.0 -m "ARY Push SDK v1.0.0"
-git push origin v1.0.0
+cd android
+./gradlew :sdk:publishReleasePublicationToGithubPackagesRepository \
+    -ParyGithubUser=YOUR_USERNAME -ParyGithubToken=TOKEN_WITH_write:packages
 ```
 
-Then open `https://jitpack.io/#arysoftware/ary-push-sdk` once and click **Get it** on the tag.
-That triggers the first build; later tags build on demand.
+```bash
+git tag -a v1.0.0 -m "ARY Push SDK v1.0.0" && git push origin v1.0.0
+```
 
-> **If the repository is private**, JitPack needs a paid plan and an auth token, and every
-> consuming project needs that token too. If you would rather not, use the GitHub Packages route
-> in [Android, alternative](#alternative-github-packages) — it authenticates with an ordinary
-> `read:packages` token. Public repository plus JitPack is the only genuinely zero-configuration
-> combination.
+CI does both on a tag push using the workflow's own `GITHUB_TOKEN`; see
+`.github/workflows/release.yml`.
+
+| Who | Token scope | Where it lives |
+| --- | --- | --- |
+| Whoever publishes | `write:packages` | CI secret, or a local Gradle property |
+| Every consuming app | `read:packages` | `~/.gradle/gradle.properties` |
 
 ## Before you start
 
@@ -51,7 +72,16 @@ supplies its own. See [SECURITY.md](SECURITY.md).
 
 # Android
 
-## Step 1. Add JitPack and the dependency
+## Step 1. Make the SDK resolvable
+
+### Route A — GitHub Packages (recommended)
+
+`~/.gradle/gradle.properties`, so the token never reaches a repository:
+
+```properties
+aryGithubUser=your-github-username
+aryGithubToken=ghp_yourTokenWith_read_packages
+```
 
 `settings.gradle.kts`:
 
@@ -60,7 +90,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }
+        maven {
+            url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
+            credentials {
+                username = providers.gradleProperty("aryGithubUser").orNull
+                password = providers.gradleProperty("aryGithubToken").orNull
+            }
+        }
     }
 }
 ```
@@ -69,46 +105,48 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+    implementation("com.ary:ary-push:1.0.0")
 }
 ```
 
-JitPack builds the AAR from the tag the first time anyone asks for it, then caches it.
+### Route B — Git submodule (no package token)
 
-Your `minSdk` must be 21 or higher. Nothing else in your Gradle files changes: the SDK's
-`AndroidManifest.xml` merges into yours automatically, bringing the FCM service, the
-notification-tap trampoline, the permission-prompt host and the `INTERNET`,
-`ACCESS_NETWORK_STATE` and `POST_NOTIFICATIONS` permissions.
-
-### Alternative: GitHub Packages
-
-Better for a private repository, because a `read:packages` token is free.
-
-Publish once, from the SDK repository:
+Your app carries a pinned checkout. Access is governed by Git, so there is no second credential
+to manage.
 
 ```bash
-cd android
-./gradlew :sdk:publishReleasePublicationToGithubPackagesRepository \
-    -ParyGithubUser=YOUR_USERNAME -ParyGithubToken=TOKEN_WITH_write:packages
+git submodule add https://github.com/arysoftware/ary-push-sdk.git third_party/ary-push-sdk
+git -C third_party/ary-push-sdk checkout v1.0.0
 ```
 
-Consume it:
+```kotlin
+// settings.gradle.kts
+include(":ary-push-sdk")
+project(":ary-push-sdk").projectDir = file("third_party/ary-push-sdk/android/sdk")
+
+// app/build.gradle.kts
+implementation(project(":ary-push-sdk"))
+```
+
+The module is self-contained: it declares its own dependency versions and requests its Gradle
+plugins without a version, so it needs no version catalog from you.
+
+> Teammates need `git submodule update --init`, and CI needs `submodules: recursive`.
+
+### Either route
+
+`minSdk` 21 or higher, and the Android and Kotlin plugins on the classpath at the root:
 
 ```kotlin
-maven {
-    url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
-    credentials {
-        username = providers.gradleProperty("aryGithubUser").orNull
-        password = providers.gradleProperty("aryGithubToken").orNull
-    }
+plugins {
+    id("com.android.application") version "9.0.1" apply false
+    id("com.android.library") version "9.0.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 ```
 
-```kotlin
-implementation("com.ary:ary-push:1.0.0")
-```
-
-Put the two properties in `~/.gradle/gradle.properties`, never in the repository.
+Nothing else changes. The SDK's manifest merges into yours, bringing the FCM service, the
+notification-tap trampoline, the permission-prompt host and the permissions it needs.
 
 ## Step 2. Add your Firebase configuration
 
@@ -186,8 +224,8 @@ Filter logcat for `ARYPush`:
 
 # iOS
 
-Swift Package Manager resolves from Git directly, so there is nothing to publish and no
-repository to configure.
+The only platform that genuinely needs nothing in the project: Swift Package Manager resolves
+from Git and authenticates with the GitHub account Xcode already knows.
 
 ## Step 1. Add the package
 
@@ -198,6 +236,7 @@ https://github.com/arysoftware/ary-push-sdk
 ```
 
 Rule **Up to Next Major Version** from `1.0.0`. Add the `ARYPush` library to your app target.
+For a private repository, add your GitHub account once under **Xcode › Settings › Accounts**.
 
 Or in a `Package.swift`:
 
@@ -206,8 +245,6 @@ dependencies: [
     .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
 ]
 ```
-
-For a private repository, add your GitHub account once under **Xcode › Settings › Accounts**.
 
 CocoaPods works too:
 
@@ -281,7 +318,8 @@ Console.app, filter the subsystem `com.ary.push`.
 
 # Flutter
 
-One dependency. No Gradle edits, no Podfile edits.
+One Dart dependency plus two credential properties. No repository block, no `implementation`
+line, no Podfile entry.
 
 ## Step 1. Add the package
 
@@ -298,15 +336,51 @@ dependencies:
 flutter pub get
 ```
 
-**That is the entire setup.** The plugin declares the JitPack repository and the SDK coordinate
-in its own Gradle build, and its podspec copies the Swift SDK into its pod at `pod install`
-time. Your `android/` and `ios/` folders are untouched.
+## Step 2. Give Gradle a way to fetch the native SDK
 
-You still need the platform prerequisites every push app needs: `android/app/google-services.json`
-with the `com.google.gms.google-services` plugin, and the **Push Notifications** capability in
-Xcode.
+`~/.gradle/gradle.properties`, to keep the token out of your app repository:
 
-## Step 2. Initialize
+```properties
+aryGithubUser=your-github-username
+aryGithubToken=ghp_yourTokenWith_read_packages
+```
+
+That is all. The plugin declares the GitHub Packages repository **for every project in your
+build** and names the SDK coordinate itself, so you write neither.
+
+> It has to reach into the root project to do that, because Gradle resolves a dependency graph
+> using the repositories of the application module rather than those of the plugin that declared
+> the dependency. A repository declared only inside the plugin is never consulted, and the
+> failure is a `Could not find` that lists every repository except the right one.
+
+iOS needs nothing: the plugin's podspec copies the Swift SDK into its own pod during
+`pod install`.
+
+### Prefer no package token?
+
+Use a submodule. Two lines in `android/settings.gradle.kts`, and the plugin uses the local
+module in preference to any artifact:
+
+```kotlin
+include(":ary-push-sdk")
+project(":ary-push-sdk").projectDir = file("../../ary-push-sdk/android/sdk")
+```
+
+### Prefer JitPack?
+
+Free only for public repositories, paid for private ones.
+
+```properties
+arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
+aryJitpackToken=<token from jitpack.io/private>
+```
+
+## Step 3. The prerequisites every push app needs
+
+`android/app/google-services.json` with the `com.google.gms.google-services` plugin, and the
+**Push Notifications** capability in `ios/Runner.xcworkspace`.
+
+## Step 4. Initialize
 
 ```dart
 Future<void> main() async {
@@ -326,7 +400,7 @@ Future<void> main() async {
 }
 ```
 
-## Step 3. Route taps
+## Step 5. Route taps
 
 ```dart
 _opened = ARYPush.onNotificationOpened.listen((notification) {
@@ -342,31 +416,12 @@ _opened = ARYPush.onNotificationOpened.listen((notification) {
 Subscribe before `runApp`. A tap that launched the app from terminated is persisted natively and
 replayed to the **first** listener that attaches.
 
-### If your repository is private
-
-The Android side needs a JitPack token, which is the one thing that breaks zero-configuration.
-Add to `android/gradle.properties`:
-
-```properties
-aryJitpackToken=<token from jitpack.io/private>
-```
-
-Or switch to GitHub Packages:
-
-```properties
-arySdkCoordinate=com.ary:ary-push:1.0.0
-aryGithubUser=<username>
-aryGithubToken=<token with read:packages>
-```
-
 ---
 
 # Tags and segments
 
-This is the part that behaves like OneSignal, and the part worth understanding before you build
-campaigns on it.
-
-**You set tags. The backend computes segments. The SDK reads them back.**
+The part that behaves like OneSignal. **You set tags. The backend computes segments. The SDK
+reads them back.**
 
 ```
 addTags({subscription: premium, country: PK})
@@ -389,16 +444,13 @@ ARYPush.getTags()
 ```
 
 Consecutive writes are coalesced into one request, and a write made offline is applied locally
-straight away and synchronised later from a durable queue.
+straight away then synchronised from a durable queue.
 
 ## Reading segments
 
 ```kotlin
-ARYPush.getSegments { segments ->
-    segments.forEach { println("${it.id}  ${it.name}") }
-}
-
-if (ARYPush.isInSegment("Premium Pakistan Users")) { /* ... */ }
+ARYPush.getSegments { segments -> segments.forEach { println(it.name) } }
+ARYPush.isInSegment("Premium Pakistan Users")
 ```
 
 ```swift
@@ -417,13 +469,11 @@ A segment is a rule — `subscription == premium AND country == PK` — and rule
 often than an app ships. If the SDK evaluated them, last quarter's marketing logic would be
 frozen into every installed binary, and changing it would mean a release plus months of adoption.
 
-So the rule lives on the server and is defined once, in the push backend. The device reports
-attributes; the backend decides membership; the app can read the answer. To change which
-segments a device lands in, change its tags.
+So the rule lives on the server. The device reports attributes, the backend decides membership,
+the app can read the answer. To change which segments a device lands in, change its tags.
 
 An unreachable backend, or no backend configured, returns an empty list rather than an error.
-
-Backend-side rule definition and the campaign model: [BACKEND.md](BACKEND.md).
+Rule definition and the campaign model: [BACKEND.md](BACKEND.md).
 
 ---
 
@@ -462,13 +512,14 @@ Full reference: [API.md](API.md).
 
 | What you see | What it means |
 | --- | --- |
-| `Could not find com.github.arysoftware:ary-push-sdk` | No tag pushed, or JitPack has not built it yet. Open `jitpack.io/#arysoftware/ary-push-sdk` and click Get it |
-| Same, on a private repository | JitPack needs a paid plan and `aryJitpackToken`. Use GitHub Packages instead |
+| `Could not find com.ary:ary-push`, and the searched list has no `maven.pkg.github.com` entry | No credentials, so the repository was skipped. Set `aryGithubUser` and `aryGithubToken` |
+| `Could not find`, and the list *does* include GitHub Packages | The artifact was never published, or the token lacks `read:packages` |
+| `Could not find com.github.arysoftware:...` | JitPack route: no tag pushed, or the repository is private and JitPack needs a paid plan |
 | `plugin is already on the classpath with an unknown version` | A `version` was added to a plugins block that must stay version-less |
 | `Firebase is not initialized` | No `google-services.json`, or the plugin is not applied |
 | `APNs registration failed` | Simulator without a paired Mac, or the Push Notifications capability is missing |
 | Token is null, no error | It arrives asynchronously. Use `addTokenRefreshListener` |
-| `getSegments()` returns empty | No backend configured, the backend is unreachable, or membership genuinely is empty |
+| `getSegments()` returns empty | No backend configured, unreachable, or membership genuinely is empty |
 | Two notifications per message | Your app renders foreground messages too. Set `foregroundDisplay = EVENT_ONLY` |
 | Tap does nothing from a killed app | The listener attached too late |
 
