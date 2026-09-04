@@ -70,26 +70,31 @@ Both carry committed `android/` and `ios/` folders, so they run without a `flutt
 
 ### Running them from this repository
 
-No publishing step and no private repository needed. Both examples resolve the native SDK
-directly from this checkout:
+Both examples declare the published GitHub package, exactly as a real application does, so
+reading them tells you the truth about integration. That also means they resolve
+`ary_push v1.0.0` from GitHub, and the native Android SDK from JitPack.
 
-```bash
-cd flutter/example
-flutter run
+While working **on** the SDK you want the working tree instead. Drop a `pubspec_overrides.yaml`
+beside the example's `pubspec.yaml`:
+
+```yaml
+dependency_overrides:
+  ary_push:
+    path: ../
 ```
 
-Android resolves it through `include(":ary-push-sdk")` in the example's
-`settings.gradle.kts`; iOS through `pod 'ARYPush', :path => '../../../ios'` in its `Podfile`.
-Edit SDK source, re-run, done.
+and, for the Android build, add the SDK module to `example/android/settings.gradle.kts`:
 
-A consuming application drops that `include` block and sets `aryMavenUrl` to ARY's private
-Maven repository instead. The plugin supports both and prefers whichever is present, so nothing
-in it changes.
+```kotlin
+include(":ary-push-sdk")
+project(":ary-push-sdk").projectDir = file("../../../android/sdk")
+```
+
+`pubspec_overrides.yaml` is git-ignored and never ships. CI writes both automatically, so a
+breaking SDK change fails the example build rather than surfacing after a tag is cut.
 
 Without a `google-services.json` the examples still build and run. No push token is issued and
-the SDK logs one clear error explaining why. Drop your own file into `example/android/app/` and
-the Gradle plugin is applied automatically; for iOS, enable the Push Notifications capability in
-`ios/Runner.xcworkspace`.
+the SDK logs one clear error explaining why.
 
 ## Testing
 

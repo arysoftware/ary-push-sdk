@@ -12,8 +12,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # The published SDK, fetched from GitHub, exactly as a real application consumes it.
+  #
+  # While working ON the SDK, create a pubspec_overrides.yaml beside this file:
+  #
+  #     dependency_overrides:
+  #       ary_push:
+  #         path: ../
+  #
+  # That is what CI does, so a change is exercised against the working tree before it is ever
+  # published. pubspec_overrides.yaml is git-ignored and never ships.
   ary_push:
-    path: ../
+    git:
+      url: https://github.com/arysoftware/ary-push-sdk.git
+      ref: v1.0.0
+      path: flutter
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
 

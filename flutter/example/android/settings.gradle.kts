@@ -28,12 +28,4 @@ plugins {
     id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
-// The native ARY Push SDK, resolved straight from this repository. There is no publishing step:
-// edit Kotlin under android/sdk and the next build picks it up.
-//
-// A real consuming application deletes these two lines and resolves com.ary:ary-push from ARY's
-// private Maven repository instead. The plugin supports both and prefers whichever is present.
-include(":ary-push-sdk")
-project(":ary-push-sdk").projectDir = file("../../../android/sdk")
-
 include(":app")

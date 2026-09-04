@@ -45,9 +45,17 @@ jobs:
         working-directory: flutter
         run: flutter test
 
-      - name: Analyze the examples
+      # The examples declare the published GitHub package, which is what a real application
+      # writes. CI overrides that to the working tree, so a breaking SDK change fails here
+      # rather than silently after it has been tagged.
+      - name: Analyze the examples against the working tree
         run: |
           for example in flutter/example flutter/example-firebase; do
+            {
+              echo "dependency_overrides:"
+              echo "  ary_push:"
+              echo "    path: ../"
+            } > "$example/pubspec_overrides.yaml"
             (cd "$example" && flutter pub get && flutter analyze)
           done
 
@@ -68,9 +76,21 @@ jobs:
         with:
           channel: stable
 
-      # The example's settings.gradle.kts includes android/sdk from this checkout, so the bridge
-      # is compiled against real SDK source with no publishing step. That also means a break in
-      # the Kotlin bridge or the merged manifest is caught here.
+      # Both the Dart package and the native SDK are pointed at the working tree, so this job
+      # proves the bridge still compiles against SDK source rather than against a published tag.
+      - name: Point the example at the working tree
+        run: |
+          {
+            echo "dependency_overrides:"
+            echo "  ary_push:"
+            echo "    path: ../"
+          } > flutter/example/pubspec_overrides.yaml
+          {
+            echo ""
+            echo 'include(":ary-push-sdk")'
+            echo 'project(":ary-push-sdk").projectDir = file("../../../android/sdk")'
+          } >> flutter/example/android/settings.gradle.kts
+
       - name: Build
         working-directory: flutter/example
         run: |
@@ -87,8 +107,19 @@ jobs:
         with:
           channel: stable
 
+      # Overridden to the working tree for the same reason as the Android job: the point is to
+      # catch a broken bridge or podspec before it is tagged, not after.
+      - name: Point the example at the working tree
+        run: |
+          {
+            echo "dependency_overrides:"
+            echo "  ary_push:"
+            echo "    path: ../"
+          } > flutter/example/pubspec_overrides.yaml
+
       # --no-codesign: CI has no signing identity, and compilation is what is being verified.
-      # The Podfile resolves ARYPush from the source tree, so no pod repository is needed.
+      # The plugin's podspec copies the Swift SDK into its own pod, so no pod repository and no
+      # Podfile entry are needed.
       - name: Build
         working-directory: flutter/example
         run: |

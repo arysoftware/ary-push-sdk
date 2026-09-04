@@ -1,3 +1,8 @@
+| Source | When |
+| --- | --- |
+| JitPack, `com.github.arysoftware:ary-push-sdk` | The default. Nothing to configure |
+| GitHub Packages, `com.ary:ary-push` | Set `arySdkCoordinate` plus a `read:packages` token |
+| Gradle project `:ary-push-sdk` | A local checkout, while working on the SDK |
 # Flutter integration
 
 ## Dependency
@@ -38,28 +43,30 @@ aryPushKotlinVersion=2.1.0
 
 ## Running the examples in this repository
 
-No publishing step, and no private repository. Both examples resolve the native SDK straight
-from this checkout:
+Both examples declare the published GitHub package, exactly as a consuming application does, so
+reading them tells you the truth about integration:
 
 ```bash
 cd flutter/example
 flutter run
 ```
 
-`flutter/example/android/settings.gradle.kts` includes `android/sdk` as a Gradle project, so a
-change to Kotlin SDK source is picked up by the next build. `flutter/example/ios/Podfile`
-resolves `ARYPush` from `../../../ios` the same way. Editing the SDK and re-running is the whole
-loop.
+While working **on** the SDK you want the working tree instead. Add a `pubspec_overrides.yaml`
+beside the example pubspec pointing `ary_push` at `path: ../`, and add the SDK module to the
+example `android/settings.gradle.kts`. Both are git-ignored or CI-generated, so the committed
+example keeps showing the real thing. CI does exactly this, which is why a breaking SDK change
+fails the example build.
 
-The plugin supports both sources and prefers whichever is present:
+The plugin resolves the native Android SDK from whichever of these is present, in this order:
 
 | Source | When |
 | --- | --- |
-| Gradle project `:ary-push-sdk` | A local checkout, as the examples are set up |
-| Maven artifact `com.ary:ary-push` | Once the SDK is published to ARY's private repository |
+| Gradle project `:ary-push-sdk` | A local checkout, while working on the SDK |
+| JitPack, `com.github.arysoftware:ary-push-sdk` | The default. Nothing for an application to configure |
+| GitHub Packages, `com.ary:ary-push` | Set `arySdkCoordinate` plus a `read:packages` token |
 
-A real consuming application deletes the `include(":ary-push-sdk")` block from its
-`settings.gradle.kts` and sets `aryMavenUrl` instead. Nothing in the plugin changes.
+A real consuming application configures none of this: the plugin declares the JitPack repository
+and the SDK coordinate in its own Gradle build, so a Flutter integration is one pubspec entry.
 
 The examples build and run without Firebase configuration, but no push token is issued and the
 SDK logs one clear error saying so. To get real delivery, add your own `google-services.json` to

@@ -49,9 +49,17 @@ kotlin {
 }
 
 dependencies {
-    // In a real host application this is the private Maven coordinate:
-    //   implementation("com.ary:ary-push:1.0.0")
-    implementation(project(":sdk"))
+    // The published SDK, resolved from GitHub through JitPack, exactly as a real application
+    // consumes it. Nothing here is special-cased for living in the SDK repository.
+    //
+    // While working ON the SDK, build with -ParyPushLocal=true to compile against the module in
+    // this repository instead, so a change is exercised before it is ever published. That is
+    // what CI does, and it is why a breaking change still fails this build.
+    if (providers.gradleProperty("aryPushLocal").getOrElse("false") == "true") {
+        implementation(project(":sdk"))
+    } else {
+        implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
+    }
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.appcompat)

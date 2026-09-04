@@ -17,6 +17,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+
+        // The samples consume the published SDK, exactly as a real application does.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

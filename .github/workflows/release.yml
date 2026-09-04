@@ -12,6 +12,9 @@ jobs:
   android:
     name: Verify and publish the Android artifact
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -31,16 +34,40 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon :sdk:test :sdk:lint
 
-      - name: Publish to the private Maven repository
+      # GitHub Packages is the primary host: it needs no server and is governed by the same
+      # repository permissions as the source. GITHUB_TOKEN already has write:packages here.
+      - name: Publish to GitHub Packages
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_aryGithubUser: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_aryGithubToken: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          ./gradlew --no-daemon
+          :sdk:publishReleasePublicationToGithubPackagesRepository
+          -ParyPush.version=${{ steps.version.outputs.value }}
+
+      # A self-hosted Maven repository, when one is configured. Skipped otherwise, so this job
+      # does not fail for teams that only use GitHub Packages and JitPack.
+      - name: Publish to the self-hosted Maven repository
+        if: ${{ secrets.ARY_MAVEN_URL != '' }}
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_aryMavenUrl: ${{ secrets.ARY_MAVEN_URL }}
           ORG_GRADLE_PROJECT_aryMavenUser: ${{ secrets.ARY_MAVEN_USER }}
           ORG_GRADLE_PROJECT_aryMavenPassword: ${{ secrets.ARY_MAVEN_PASSWORD }}
-        run: |
-          ./gradlew --no-daemon \
-            :sdk:publishReleasePublicationToARYPrivateRepository \
-            -ParyPush.version=${{ steps.version.outputs.value }}
+        run: >
+          ./gradlew --no-daemon
+          :sdk:publishReleasePublicationToAryPrivateRepository
+          -ParyPush.version=${{ steps.version.outputs.value }}
+
+      # JitPack builds on demand from the tag, so there is nothing to push. This warms it so the
+      # first application to ask for the version does not wait for a cold build.
+      - name: Warm the JitPack build
+        run: >
+          curl -sS -o /dev/null -w "jitpack %{http_code}\n"
+          "https://jitpack.io/api/builds/com.github.${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.ref_name }}"
+        continue-on-error: true
+
 
   ios:
     name: Verify the Swift package

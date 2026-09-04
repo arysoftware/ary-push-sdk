@@ -46,9 +46,15 @@ jobs:
 
       # The samples are what prove the SDK actually embeds into an application, so a break in
       # manifest merging or the public API is caught here rather than by a consuming team.
-      - name: Build sample host applications
+      # The samples declare the published JitPack coordinate, which is what a real application
+      # writes. -ParyPushLocal=true swaps in the module from this checkout, so a breaking change
+      # fails here rather than silently after it has been tagged.
+      - name: Build sample host applications against the working tree
         working-directory: android
-        run: ./gradlew --no-daemon :sample-basic:assembleDebug :sample-existing-firebase:assembleDebug
+        run: >
+          ./gradlew --no-daemon -ParyPushLocal=true
+          :sample-basic:assembleDebug :sample-existing-firebase:assembleDebug
+
 
       - name: Publish reports
         if: always()
