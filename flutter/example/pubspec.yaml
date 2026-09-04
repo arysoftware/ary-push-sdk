@@ -30,7 +30,7 @@ dependencies:
   # Add `ref: v1.0.0` below once that tag exists, to pin the example to a release.
   ary_push:
     git:
-      url: https://github.com/arysoftware/ary-push-sdk.git
+      url: https://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@github.com/arysoftware/ary-push-sdk.git
       path: flutter
 
 dev_dependencies:
