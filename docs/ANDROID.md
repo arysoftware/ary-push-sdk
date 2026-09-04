@@ -9,23 +9,18 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri(providers.gradleProperty("aryMavenUrl").get())
-            credentials {
-                username = providers.gradleProperty("aryMavenUser").orNull
-                password = providers.gradleProperty("aryMavenPassword").orNull
-            }
-        }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
 
 ```kotlin
 // app/build.gradle.kts
-implementation("com.ary:ary-push:1.0.0")
+implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
 ```
 
-Credentials belong in `~/.gradle/gradle.properties` or CI secrets, never in the repository.
+No credentials: the repository is public and JitPack builds the tag on demand. The version is the
+git tag verbatim, which is where the leading `v` comes from.
 
 ## Initialization
 

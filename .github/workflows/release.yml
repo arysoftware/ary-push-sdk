@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -34,20 +33,11 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon :sdk:test :sdk:lint
 
-      # GitHub Packages is the primary host: it needs no server and is governed by the same
-      # repository permissions as the source. GITHUB_TOKEN already has write:packages here.
-      - name: Publish to GitHub Packages
-        working-directory: android
-        env:
-          ORG_GRADLE_PROJECT_aryGithubUser: ${{ github.actor }}
-          ORG_GRADLE_PROJECT_aryGithubToken: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          ./gradlew --no-daemon
-          :sdk:publishReleasePublicationToGithubPackagesRepository
-          -ParyPush.version=${{ steps.version.outputs.value }}
+      # Nothing is published to a Maven host. JitPack builds the tag on demand from this public
+      # repository, so the release artifact is the tag itself, and consumers need no credentials.
 
       # A self-hosted Maven repository, when one is configured. Skipped otherwise, so this job
-      # does not fail for teams that only use GitHub Packages and JitPack.
+      # does not fail for teams that only use JitPack.
       - name: Publish to the self-hosted Maven repository
         if: ${{ secrets.ARY_MAVEN_URL != '' }}
         working-directory: android

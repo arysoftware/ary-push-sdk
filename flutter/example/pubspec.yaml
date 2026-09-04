@@ -20,17 +20,11 @@ dependencies:
   #
   # That is what CI does, so a change is exercised against the working tree before it is ever
   # published. pubspec_overrides.yaml is git-ignored and never ships.
-  # Never put a token in this URL. pubspec.yaml is committed, so a token written here is
-  # published the moment the repository is pushed. Authenticate git instead, once, with either
-  # of these — both keep the credential out of the repository:
-  #
-  #     gh auth login                     # GitHub CLI, stores the token in the OS keychain
-  #     git config --global credential.helper manager   # Windows Credential Manager
-  #
-  # Add `ref: v1.0.0` below once that tag exists, to pin the example to a release.
+  # The repository is public, so this needs no token and no git authentication of any kind.
+  # Add `ref: v1.0.0` once that tag exists, to pin the example to a release.
   ary_push:
     git:
-      url: https://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@github.com/arysoftware/ary-push-sdk.git
+      url: https://github.com/arysoftware/ary-push-sdk.git
       path: flutter
 
 dev_dependencies:

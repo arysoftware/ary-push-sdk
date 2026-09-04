@@ -1,7 +1,7 @@
 | Source | When |
 | --- | --- |
 | JitPack, `com.github.arysoftware:ary-push-sdk` | The default. Nothing to configure |
-| GitHub Packages, `com.ary:ary-push` | Set `arySdkCoordinate` plus a `read:packages` token |
+| A self-hosted Maven repository | Set `arySdkCoordinate` and `aryMavenUrl` |
 | Gradle project `:ary-push-sdk` | A local checkout, while working on the SDK |
 # Flutter integration
 
@@ -26,7 +26,7 @@ The plugin is a bridge. The native SDKs still need what they always need:
 | Platform | Requirement |
 | --- | --- |
 | Android | `google-services.json` and the `com.google.gms.google-services` plugin in `android/app` |
-| Android | The private Maven repository declared in `android/settings.gradle` so `com.ary:ary-push` resolves |
+| Android | Nothing. The plugin declares the JitPack repository and the SDK coordinate for you |
 | iOS | Push Notifications capability and, for silent messages, Background Modes > Remote notifications |
 | iOS | `pod 'ARYPush', :git => '...', :tag => 'v1.0.0'` in `ios/Podfile`, unless your private spec repo carries it |
 
@@ -63,7 +63,7 @@ The plugin resolves the native Android SDK from whichever of these is present, i
 | --- | --- |
 | Gradle project `:ary-push-sdk` | A local checkout, while working on the SDK |
 | JitPack, `com.github.arysoftware:ary-push-sdk` | The default. Nothing for an application to configure |
-| GitHub Packages, `com.ary:ary-push` | Set `arySdkCoordinate` plus a `read:packages` token |
+| A self-hosted Maven repository | Set `arySdkCoordinate` and `aryMavenUrl` |
 
 A real consuming application configures none of this: the plugin declares the JitPack repository
 and the SDK coordinate in its own Gradle build, so a Flutter integration is one pubspec entry.

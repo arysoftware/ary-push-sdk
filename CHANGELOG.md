@@ -16,16 +16,20 @@ three artifacts, so host applications only ever reason about one SDK version.
   `GET /v1/installations/{id}/segments`. Read-only: the backend computes membership from tags,
   the SDK reports attributes and reads the answer. A segment rule changes far more often than an
   app ships, so it stays on the server.
-- **GitHub Packages publishing**, the default distribution route. A free `read:packages` token
-  is all a consuming application needs.
-- **JitPack support** via `jitpack.yml`, for teams with a public repository. JitPack charges for
-  private repositories, so it is not the default.
-- **Flutter integration reduced to a pubspec entry plus two credential properties.** The plugin
-  declares the Maven repository on every project in the host build and names the SDK coordinate
-  itself, and its podspec vendors the Swift SDK into its own pod. It reaches into the root
-  project deliberately: Gradle resolves a dependency graph using the repositories of the
-  application module, not those of the module that declared the dependency, so a repository
-  declared only inside the plugin is never consulted.
+- **JitPack is the distribution route**, via `jitpack.yml`, and the repository is public, so a
+  consuming application needs no token, account or credential on any platform. The coordinate is
+  `com.github.arysoftware:ary-push-sdk:<tag>`; a release is a git tag, with nothing uploaded to a
+  Maven host.
+- **GitHub Packages removed.** It requires a personal access token from every consumer even for a
+  public repository, which is not a cost an embedded SDK should impose. `com.ary:ary-push` remains
+  available for teams publishing to their own Maven repository, via `-ParyPush.group` and
+  `-ParyPush.artifact`.
+- **Flutter integration reduced to a pubspec entry.** The plugin declares the Maven repository on
+  every project in the host build and names the SDK coordinate itself, and its podspec vendors
+  the Swift SDK into its own pod. It reaches into the root project deliberately: Gradle resolves
+  a dependency graph using the repositories of the application module, not those of the module
+  that declared the dependency, so a repository declared only inside the plugin is never
+  consulted.
 - `scripts/set_repository.sh` to point the whole repository at a different GitHub home in one
   pass.
 
@@ -33,7 +37,7 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Added
 
-**Android SDK** (`com.ary:ary-push`)
+**Android SDK** (`com.github.arysoftware:ary-push-sdk`)
 
 - `ARYPush` facade: initialize, permission, token, installation, user, tags, topics, events.
 - Thread-safe, idempotent, crash-safe initialization; optional AndroidX Startup auto-initialization.

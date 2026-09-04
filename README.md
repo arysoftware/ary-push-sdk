@@ -29,7 +29,7 @@ The SDK **never navigates**. It emits events; the host application decides what 
 ```
 ary-push-sdk/
   android/                       Android SDK (Kotlin) + sample host apps
-    sdk/                         com.ary:ary-push
+    sdk/                         com.github.arysoftware:ary-push-sdk
     sample-basic/
     sample-existing-firebase/
   ios/                           iOS SDK (Swift package "ARYPush")
@@ -48,19 +48,14 @@ ary-push-sdk/
 
 ## Quick start
 
-Publish once and tag (`scripts/release.sh 1.0.0`), then:
+Tag a release (`scripts/release.sh 1.0.0`), then — on every platform, with no account, token or
+credential of any kind:
 
-**Android** — a repository block in `settings.gradle.kts` plus the dependency:
+**Android** — one repository line in `settings.gradle.kts` plus the dependency:
 
 ```kotlin
-maven {
-    url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
-    credentials {
-        username = providers.gradleProperty("aryGithubUser").orNull
-        password = providers.gradleProperty("aryGithubToken").orNull
-    }
-}
-implementation("com.ary:ary-push:1.0.0")
+maven { url = uri("https://jitpack.io") }
+implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
 ```
 
 ```kotlin
@@ -74,8 +69,7 @@ Nothing else.
 ARYPush.initialize()
 ```
 
-**Flutter** — `pubspec.yaml`, plus the same two credential properties in
-`~/.gradle/gradle.properties`:
+**Flutter** — `pubspec.yaml`, and nothing else:
 
 ```yaml
 dependencies:
@@ -91,8 +85,8 @@ await ARYPush.initialize();
 ```
 
 The plugin declares the Maven repository and the SDK coordinate for you, so no Gradle or Podfile
-edits are needed — but a private repository still needs a `read:packages` token somewhere. A git
-submodule avoids the token entirely.
+edits are needed. The repository is public and JitPack builds it on demand, so that really is the
+whole Flutter integration.
 
 Complete steps: [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
@@ -120,7 +114,7 @@ Complete steps: [docs/INTEGRATION.md](docs/INTEGRATION.md).
 | Identifier | Meaning |
 | --- | --- |
 | `com.ary.push` | Android package |
-| `com.ary:ary-push` | Maven coordinate |
+| `com.github.arysoftware:ary-push-sdk` | Maven coordinate, as JitPack serves it |
 | `ARYPush` | iOS module and public type prefix |
 | `ary_push` | Flutter package, platform channels and storage key namespace |
 | `push-api.ary.com` | Example backend host, never hardcoded in SDK code |

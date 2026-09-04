@@ -19,14 +19,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri(providers.gradleProperty("aryMavenUrl").get()) }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
 
 ```kotlin
 // app/build.gradle.kts
-implementation("com.ary:ary-push:1.0.0")
+implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
 ```
 
 ### 2. Initialize

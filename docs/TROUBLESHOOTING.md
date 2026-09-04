@@ -146,10 +146,18 @@ Without one the SDK falls back to your launcher icon, which is usually not a sil
 
 ## Build failures
 
+**`Could not find com.github.arysoftware:ary-push-sdk`**
+
+If `jitpack.io` is absent from the searched locations, the repository is not declared — add
+`maven { url = uri("https://jitpack.io") }`. If it is present, the tag does not exist or JitPack's
+build of it failed; the log is at
+`https://jitpack.io/com/github/arysoftware/ary-push-sdk/<tag>/build.log`. No credentials are
+involved either way. See [ANDROID.md](ANDROID.md#dependency).
+
 **`Could not find com.ary:ary-push`**
 
-The private Maven repository is not declared, or the credentials are missing. See
-[ANDROID.md](ANDROID.md#dependency).
+That coordinate exists only on a self-hosted Maven repository. From JitPack the SDK is
+`com.github.arysoftware:ary-push-sdk:<tag>`.
 
 **Duplicate class or Firebase version conflict**
 

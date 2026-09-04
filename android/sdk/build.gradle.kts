@@ -129,30 +129,14 @@ publishing {
     }
 
     repositories {
-        // GitHub Packages. The simplest Maven host for a private SDK when the code is already
-        // on GitHub: no server to run, and access is governed by the same repository
-        // permissions as the source.
-        //
-        //   ./gradlew :sdk:publishReleasePublicationToGithubPackagesRepository \
-        //       -ParyGithubUser=<username> -ParyGithubToken=<token with write:packages>
-        //
-        // Consuming projects read it back with a token that has read:packages. See
-        // docs/INTEGRATION.md.
-        val githubOwner = providers.gradleProperty("aryGithubOwner").getOrElse("arysoftware")
-        val githubRepo = providers.gradleProperty("aryGithubRepo").getOrElse("ary-push-sdk")
-        maven {
-            name = "githubPackages"
-            url = uri("https://maven.pkg.github.com/$githubOwner/$githubRepo")
-            credentials {
-                username = providers.gradleProperty("aryGithubUser").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("aryGithubToken").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
+        // There is no GitHub Packages repository here, and no credentials anywhere in this
+        // build. Applications get the SDK from JitPack, which builds this public repository on
+        // demand from a git tag, so a release is a tag and nothing is pushed to a Maven host.
+        // GitHub Packages would undo that: it demands a personal access token from every
+        // consumer even when the repository is public.
 
-        // A self-hosted Maven repository, for teams that would rather not depend on GitHub
-        // Packages. Configured entirely from properties; never committed with credentials.
+        // A self-hosted Maven repository, for teams that would rather not depend on JitPack.
+        // Configured entirely from properties; never committed with credentials.
         val privateUrl = providers.gradleProperty("aryMavenUrl").orNull
         if (privateUrl != null) {
             maven {

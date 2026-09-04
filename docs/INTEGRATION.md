@@ -4,71 +4,47 @@ Everything is fetched from `github.com/arysoftware/ary-push-sdk`. No folder path
 
 | Platform | How you add it | Setup in your app |
 | --- | --- | --- |
-| **Android** | GitHub Packages | A repository block and two properties |
+| **Android** | JitPack | One repository line |
 | **iOS** | Swift Package Manager, from the URL | None |
-| **Flutter** | `pubspec.yaml` | Two properties |
+| **Flutter** | `pubspec.yaml` | None |
 
-## A private repository always needs authentication
+## No credentials, on any platform
 
-There is no way around that, so decide where the credential lives:
+The repository is public, so nothing here asks for a token, an account, or a credential helper.
+Each platform's own package manager fetches the SDK the way it fetches any open dependency:
 
-| Route | Cost | Credential |
+| Platform | Source | What authenticates |
 | --- | --- | --- |
-| **GitHub Packages** | Free | A classic token with `read:packages` |
-| **Git submodule** | Free | None. Git handles access |
-| **JitPack** | **Paid** for private repositories | A JitPack token |
+| **Android** | JitPack, which builds the tag on demand | Nothing |
+| **iOS** | Swift Package Manager, straight from the git tag | Nothing |
+| **Flutter** | `pub`, as a git dependency | Nothing |
 
-GitHub Packages is the default throughout this guide: it is the closest thing to consuming the
-repository directly, and the token it needs is free and read-only.
+> **GitHub Packages is deliberately not used.** It requires a personal access token from every
+> consumer *even when the repository is public* — GitHub has never supported anonymous Maven
+> reads. Making the repository public removes the need for a token only if distribution moves off
+> GitHub Packages, which is what JitPack does. An SDK should not make every application that
+> embeds it manage a credential.
 
-> **Correcting an earlier version of this guide,** which claimed a Flutter integration needed no
-> native configuration. That was wrong. Gradle resolves a dependency graph using the repositories
-> of the **application** module, not those of the plugin that declared the dependency, so a
-> plugin cannot supply a credentialed repository entirely on your behalf. The plugin does declare
-> the repository for you; you still supply the two credential properties.
+Two consequences worth knowing:
 
-iOS is the exception. Swift Package Manager authenticates with your GitHub account in Xcode, so
-the iOS side genuinely needs nothing in the project. Sign in once under
-**Xcode › Settings › Accounts**.
+- A release is a **git tag**, not an upload. JitPack builds `v1.0.0` the first time someone asks
+  for it, then caches it. Nothing is pushed to a Maven host.
+- JitPack's coordinate is `com.github.<owner>:<repo>:<tag>`, and the version is the tag verbatim,
+  hence the leading `v` in `com.github.arysoftware:ary-push-sdk:v1.0.0`.
 
-### Never put the token in a tracked file
+### Still: never commit a credential
 
-Whichever route you pick, the credential goes somewhere git does not track. The two places that
-look like configuration but are not are the ones to avoid:
-
-```yaml
-# WRONG — pubspec.yaml is committed, so this publishes the token on the next push.
-ary_push:
-  git:
-    url: https://ghp_xxxxxxxxxxxx@github.com/arysoftware/ary-push-sdk.git
-```
-
-```properties
-# WRONG — the repository's own gradle.properties is committed too.
-aryGithubToken=ghp_xxxxxxxxxxxx
-```
-
-Put it in one of these instead:
-
-| What needs it | Where it goes |
-| --- | --- |
-| Gradle | `~/.gradle/gradle.properties` — outside every repository |
-| Gradle on CI | `ORG_GRADLE_PROJECT_aryGithubToken` from a secret |
-| `git` and `flutter pub get` | A credential helper: `gh auth login`, or `git config --global credential.helper manager` on Windows |
-
-If a token does reach a commit, **revoke it first** at
-[github.com/settings/tokens](https://github.com/settings/tokens). Removing it in a later commit
-does not help: the old commit still contains it, and on a pushed branch it has already left your
-machine. Rewriting history is worth doing afterwards, but revocation is what actually closes the
-hole.
-
-`.github/workflows/security.yml` fails the build on any committed token or credential-bearing
-URL, so this is caught on the branch rather than discovered later.
+Nothing in this SDK needs one, but if you add a dependency that does, it goes in
+`~/.gradle/gradle.properties`, a CI secret, or a git credential helper (`gh auth login`) — never
+in `pubspec.yaml`, a tracked `gradle.properties`, or a URL like
+`https://ghp_xxxx@github.com/...`. `.github/workflows/security.yml` fails the build on any
+committed token or credential-bearing URL. If one does reach a commit, **revoke it first**: the
+old commit still contains it, and on a pushed branch it has already left your machine.
 
 ### Building the examples in this repository
 
-The examples resolve the SDK exactly as an application does, so until it is published they need
-the same access an application would. To build them with no GitHub access at all:
+The examples resolve the SDK exactly as an application does, so they need a release tag that
+JitPack has built. Before that tag exists:
 
 ```bash
 scripts/dev_offline_examples.sh
@@ -89,37 +65,34 @@ path in that application's `android/gradle.properties`:
 aryPushLocalRepo=/absolute/path/to/ary-push-sdk/android/build/local-maven
 ```
 
-When the plugin can find no source for the native SDK at all, it now fails during configuration
-with these options spelled out, rather than letting the build run on to
-`:app:checkDebugAarMetadata` and report `Could not find com.ary:ary-push` against a repository
-list that never contained it. An application that gets the SDK from a repository declared in its
-own `settings.gradle.kts` sets `aryPushSkipRepositoryCheck=true` to bypass the check.
-
 Open `android/` in Android Studio, never `android/sample-basic`. The samples are modules of that
 build; opening one directly makes Gradle treat it as the default project and IDE sync fails with
 `Task 'prepareKotlinBuildScriptModel' not found in project ':sample-basic'`.
 
 ## Publishing (maintainers, once per release)
 
-Nothing resolves until the artifact exists and the tag is pushed.
-
-```bash
-cd android
-./gradlew :sdk:publishReleasePublicationToGithubPackagesRepository \
-    -ParyGithubUser=YOUR_USERNAME -ParyGithubToken=TOKEN_WITH_write:packages
-```
+Releasing is one command, because there is no artifact to upload:
 
 ```bash
 git tag -a v1.0.0 -m "ARY Push SDK v1.0.0" && git push origin v1.0.0
 ```
 
-CI does both on a tag push using the workflow's own `GITHUB_TOKEN`; see
-`.github/workflows/release.yml`.
+That is the whole release. All three platforms resolve from the tag: JitPack builds the Android
+AAR on first request, Swift Package Manager reads the tag directly, and `pub` clones it.
 
-| Who | Token scope | Where it lives |
-| --- | --- | --- |
-| Whoever publishes | `write:packages` | CI secret, or a local Gradle property |
-| Every consuming app | `read:packages` | `~/.gradle/gradle.properties` |
+`.github/workflows/release.yml` runs the tests for all three platforms on that tag, warms the
+JitPack build so the first application to ask does not wait for a cold build, and publishes the
+release notes from `CHANGELOG.md`. It needs no `packages: write` permission and no secrets.
+
+Publishing to a self-hosted Maven repository as well is optional, and the only route here that
+involves credentials at all:
+
+```bash
+cd android
+./gradlew :sdk:publishReleasePublicationToAryPrivateRepository \
+    -ParyPush.group=com.ary -ParyPush.artifact=ary-push -ParyPush.version=1.0.0 \
+    -ParyMavenUrl=... -ParyMavenUser=... -ParyMavenPassword=...
+```
 
 ## Before you start
 
@@ -142,14 +115,9 @@ supplies its own. See [SECURITY.md](SECURITY.md).
 
 ## Step 1. Make the SDK resolvable
 
-### Route A — GitHub Packages (recommended)
+### Route A — JitPack (recommended)
 
-`~/.gradle/gradle.properties`, so the token never reaches a repository:
-
-```properties
-aryGithubUser=your-github-username
-aryGithubToken=ghp_yourTokenWith_read_packages
-```
+One repository, no credentials.
 
 `settings.gradle.kts`:
 
@@ -158,13 +126,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/arysoftware/ary-push-sdk")
-            credentials {
-                username = providers.gradleProperty("aryGithubUser").orNull
-                password = providers.gradleProperty("aryGithubToken").orNull
-            }
-        }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
@@ -173,14 +135,19 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.ary:ary-push:1.0.0")
+    implementation("com.github.arysoftware:ary-push-sdk:v1.0.0")
 }
 ```
 
-### Route B — Git submodule (no package token)
+The version is the git tag verbatim — that is JitPack's convention, and why it carries the `v`.
+The first build of a tag takes a minute or two while JitPack compiles it; after that it is
+cached and served like any other artifact. If it fails, the build log is at
+`https://jitpack.io/com/github/arysoftware/ary-push-sdk/v1.0.0/build.log`.
 
-Your app carries a pinned checkout. Access is governed by Git, so there is no second credential
-to manage.
+### Route B — Git submodule
+
+Your app carries a pinned checkout and builds the SDK from source, so it depends on no package
+host at all. Worth it if you need to patch the SDK, or if your build must work offline.
 
 ```bash
 git submodule add https://github.com/arysoftware/ary-push-sdk.git third_party/ary-push-sdk
@@ -304,7 +271,7 @@ https://github.com/arysoftware/ary-push-sdk
 ```
 
 Rule **Up to Next Major Version** from `1.0.0`. Add the `ARYPush` library to your app target.
-For a private repository, add your GitHub account once under **Xcode › Settings › Accounts**.
+No GitHub account is needed in Xcode: the repository is public.
 
 Or in a `Package.swift`:
 
@@ -386,8 +353,8 @@ Console.app, filter the subsystem `com.ary.push`.
 
 # Flutter
 
-One Dart dependency plus two credential properties. No repository block, no `implementation`
-line, no Podfile entry.
+One Dart dependency. No repository block, no `implementation` line, no Podfile entry, no
+credentials.
 
 ## Step 1. Add the package
 
@@ -404,43 +371,36 @@ dependencies:
 flutter pub get
 ```
 
-## Step 2. Give Gradle a way to fetch the native SDK
+## Step 2. There is no step 2
 
-`~/.gradle/gradle.properties`, to keep the token out of your app repository:
-
-```properties
-aryGithubUser=your-github-username
-aryGithubToken=ghp_yourTokenWith_read_packages
-```
-
-That is all. The plugin declares the GitHub Packages repository **for every project in your
-build** and names the SDK coordinate itself, so you write neither.
+The plugin declares the JitPack repository **for every project in your build** and names the SDK
+coordinate itself, so you write neither, and neither needs a credential.
 
 > It has to reach into the root project to do that, because Gradle resolves a dependency graph
 > using the repositories of the application module rather than those of the plugin that declared
 > the dependency. A repository declared only inside the plugin is never consulted, and the
 > failure is a `Could not find` that lists every repository except the right one.
 
-iOS needs nothing: the plugin's podspec copies the Swift SDK into its own pod during
+iOS needs nothing either: the plugin's podspec copies the Swift SDK into its own pod during
 `pod install`.
 
-### Prefer no package token?
+### Building the native SDK from source instead
 
-Use a submodule. Two lines in `android/settings.gradle.kts`, and the plugin uses the local
-module in preference to any artifact:
+Two lines in `android/settings.gradle.kts`. The plugin uses a local module in preference to any
+artifact, so nothing else changes:
 
 ```kotlin
 include(":ary-push-sdk")
 project(":ary-push-sdk").projectDir = file("../../ary-push-sdk/android/sdk")
 ```
 
-### Prefer JitPack?
-
-Free only for public repositories, paid for private ones.
+### Pointing at your own Maven repository instead
 
 ```properties
-arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
-aryJitpackToken=<token from jitpack.io/private>
+arySdkCoordinate=com.ary:ary-push:1.0.0
+aryMavenUrl=https://maven.example.internal/releases
+aryMavenUser=...
+aryMavenPassword=...
 ```
 
 ## Step 3. The prerequisites every push app needs
@@ -580,9 +540,9 @@ Full reference: [API.md](API.md).
 
 | What you see | What it means |
 | --- | --- |
-| `Could not find com.ary:ary-push`, and the searched list has no `maven.pkg.github.com` entry | No credentials, so the repository was skipped. Set `aryGithubUser` and `aryGithubToken` |
-| `Could not find`, and the list *does* include GitHub Packages | The artifact was never published, or the token lacks `read:packages` |
-| `Could not find com.github.arysoftware:...` | JitPack route: no tag pushed, or the repository is private and JitPack needs a paid plan |
+| `Could not find com.github.arysoftware:ary-push-sdk`, and the searched list has no `jitpack.io` entry | The JitPack repository is missing from `settings.gradle.kts` |
+| `Could not find`, and the list *does* include `jitpack.io` | The tag does not exist, or JitPack's build of it failed. Check `https://jitpack.io/com/github/arysoftware/ary-push-sdk/<tag>/build.log` |
+| `Could not find com.ary:ary-push` | That coordinate only exists on a self-hosted repository. Use `com.github.arysoftware:ary-push-sdk:<tag>` for JitPack |
 | `plugin is already on the classpath with an unknown version` | A `version` was added to a plugins block that must stay version-less |
 | `Firebase is not initialized` | No `google-services.json`, or the plugin is not applied |
 | `APNs registration failed` | Simulator without a paired Mac, or the Push Notifications capability is missing |

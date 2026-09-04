@@ -4,13 +4,17 @@
 # lives in android/. So the install step is explicit: build the SDK and install it into the
 # local Maven repository, which is where JitPack collects artifacts from.
 #
-# The coordinates are overridden to JitPack's convention. JitPack serves everything under
-# com.github.<owner>, so the artifact a consuming project asks for is:
+# JitPack is how applications get this SDK. The repository is public, so JitPack builds it for
+# free, on demand, from a git tag, and a consuming application needs no token and no account.
 #
-#     com.github.arysoftware:ary-push-sdk:<tag>
+# JitPack serves everything under com.github.<owner>, and uses the tag verbatim as the Maven
+# version, so the artifact a consuming project asks for is:
 #
-# rather than the com.ary:ary-push coordinate used when publishing to GitHub Packages or a
-# self-hosted repository. Same AAR, two names.
+#     com.github.arysoftware:ary-push-sdk:v1.0.0
+#
+# android/gradle.properties already defaults to those coordinates, so a local build produces the
+# same artifact name. Publishing to a self-hosted repository instead uses com.ary:ary-push via
+# -ParyPush.group / -ParyPush.artifact. Same AAR, two names.
 
 jdk:
   - openjdk21

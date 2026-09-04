@@ -64,7 +64,9 @@ for file in "${FILES[@]}"; do
     sed -i \
         -e "s|github\.com/$OLD_OWNER/$OLD_REPO|github.com/$OWNER/$REPO|g" \
         -e "s|github\.com:$OLD_OWNER/$OLD_REPO|github.com:$OWNER/$REPO|g" \
-        -e "s|maven\.pkg\.github\.com/$OLD_OWNER/$OLD_REPO|maven.pkg.github.com/$OWNER/$REPO|g" \
+        -e "s|com\.github\.$OLD_OWNER:$OLD_REPO|com.github.$OWNER:$REPO|g" \
+        -e "s|aryPush\.group=com\.github\.$OLD_OWNER|aryPush.group=com.github.$OWNER|g" \
+        -e "s|aryPush\.artifact=$OLD_REPO|aryPush.artifact=$REPO|g" \
         -e "s|getOrElse(\"$OLD_OWNER\")|getOrElse(\"$OWNER\")|g" \
         -e "s|getOrElse(\"$OLD_REPO\")|getOrElse(\"$REPO\")|g" \
         "$file"

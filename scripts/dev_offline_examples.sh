@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 #
-# Makes every example in this repository build without any GitHub access.
+# Makes every example in this repository build before a release tag exists.
 #
 # WHY THIS EXISTS
 #
 # The examples deliberately consume the SDK the way a real application does: the Android samples
-# resolve the Maven coordinate com.ary:ary-push, and the Flutter examples resolve the ary_push
-# package from git. Both of those need the SDK to have been published, and need credentials for
-# a private repository.
+# resolve com.github.arysoftware:ary-push-sdk from JitPack, and the Flutter examples resolve the
+# ary_push package from git. Neither needs a credential — the repository is public — but both
+# need a release tag that JitPack has built.
 #
-# Until that is true, there are exactly two ways to run an example: have access to the published
-# SDK, or point the examples at this working tree. This script does the second, explicitly and
-# reversibly. It is the supported alternative to the thing everybody tries first — pasting a
-# token into pubspec.yaml or gradle.properties — which leaks the token the moment the branch is
-# pushed.
+# Until that tag exists, this points the examples at the working tree instead, explicitly and
+# reversibly.
 #
 #     scripts/dev_offline_examples.sh            # point the examples at this working tree
 #     scripts/dev_offline_examples.sh --undo     # put them back on the published SDK
@@ -43,9 +40,8 @@ undo() {
     fi
 
     echo
-    echo "The examples are back on the published SDK. They will build once"
-    echo "com.ary:ary-push is on GitHub Packages and this repository is readable"
-    echo "by the account git is authenticated as."
+    echo "The examples are back on the published SDK. They will build once a release"
+    echo "tag exists and JitPack has built it; no credentials are involved."
 }
 
 if [ "${1:-}" = "--undo" ]; then
@@ -68,8 +64,10 @@ echo "Publishing the Android SDK to android/build/local-maven"
     ./gradlew --quiet :sdk:publishReleasePublicationToLocalStagingRepository
 )
 
+GROUP="$(sed -n 's/^aryPush\.group=//p' "$ROOT/android/gradle.properties")"
+ARTIFACT="$(sed -n 's/^aryPush\.artifact=//p' "$ROOT/android/gradle.properties")"
 VERSION="$(sed -n 's/^aryPush\.version=//p' "$ROOT/android/gradle.properties")"
-echo "  published com.ary:ary-push:${VERSION}"
+echo "  published ${GROUP}:${ARTIFACT}:${VERSION}"
 
 # ---------------------------------------------------------------------------
 # Flutter: override the git dependency with a path to this working tree.

@@ -20,9 +20,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT/android"
 
+GROUP="$(sed -n 's/^aryPush\.group=//p' gradle.properties)"
+ARTIFACT="$(sed -n 's/^aryPush\.artifact=//p' gradle.properties)"
 VERSION="$(sed -n 's/^aryPush\.version=//p' gradle.properties)"
 
-echo "Publishing com.ary:ary-push:$VERSION to android/build/local-maven"
+echo "Publishing $GROUP:$ARTIFACT:$VERSION to android/build/local-maven"
 ./gradlew :sdk:publishReleasePublicationToLocalStagingRepository
 
 echo
