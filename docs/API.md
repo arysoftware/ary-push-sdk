@@ -33,7 +33,7 @@ code stays portable.
 | --- | --- |
 | Android | `getInstallationId()`, `getPushToken()` (suspend or callback), `addTokenRefreshListener(l)` |
 | iOS | `getInstallationId()`, `getPushToken()`, `getAPNsToken()`, `getPushProvider()`, `addTokenRefreshListener { }` |
-| Flutter | `await getInstallationId()`, `await getPushToken()`, `await getPushProvider()`, `onTokenRefresh` |
+| Flutter | `await getInstallationId()`, `await getPushToken()`, `await getPushProvider()`, `await setFCMToken(t)`, `onTokenRefresh` |
 
 The installation id is stable across token refreshes, logins and logouts. You never need to send
 the token to a server; the SDK does.

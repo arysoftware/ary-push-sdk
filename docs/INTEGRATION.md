@@ -421,7 +421,14 @@ aryMavenPassword=...
 ## Step 3. The prerequisites every push app needs
 
 `android/app/google-services.json` with the `com.google.gms.google-services` plugin, and the
-**Push Notifications** capability in `ios/Runner.xcworkspace`.
+**Push Notifications** capability in `ios/Runner.xcworkspace` — Runner target › Signing &
+Capabilities › **+ Capability** › Push Notifications.
+
+Do not skip the iOS half because Android works. `flutter create` does not add the capability, and
+without the `aps-environment` entitlement it creates, iOS issues **no push token at all** while
+Android carries on happily. Testing also needs a real device: the Simulator never receives an APNs
+token. If your backend sends through Firebase rather than APNs directly, iOS needs one more line —
+see [FLUTTER.md](FLUTTER.md#push-tokens-are-not-the-same-value-on-both-platforms).
 
 ## Step 4. Initialize
 

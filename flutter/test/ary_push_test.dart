@@ -94,6 +94,24 @@ void main() {
     });
   });
 
+  group('token', () {
+    test('setFCMToken forwards the token', () async {
+      await ARYPush.setFCMToken('fcm-registration-token');
+
+      expect(
+        callTo('setFCMToken').arguments,
+        <String, dynamic>{'token': 'fcm-registration-token'},
+      );
+    });
+
+    test('getPushProvider reports the transport that issued the token',
+        () async {
+      responses['getPushProvider'] = 'apns';
+
+      expect(await ARYPush.getPushProvider(), PushProvider.apns);
+    });
+  });
+
   group('identity and tags', () {
     test('login forwards the user id', () async {
       await ARYPush.login('USER_123');

@@ -211,6 +211,14 @@ public class ARYPushPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Stre
                 result.success(null)
             }
 
+            // Accepted and ignored on Android, rather than notImplemented().
+            //
+            // The call exists for iOS, where Firebase owns the token the backend must send to and
+            // only the host application can hand it over. On Android the SDK receives FCM tokens
+            // directly from FirebaseMessaging, so there is nothing to supply -- but cross-platform
+            // Dart calls this unconditionally, and an error here would look like a real failure.
+            "setFCMToken" -> result.success(null)
+
             "flush" -> {
                 ARYPush.flush()
                 result.success(null)

@@ -204,8 +204,26 @@ Two different values, and confusing them is a classic source of silent non-deliv
 about it. Applications using Firebase Messaging call `ARYPush.setFCMToken(_:)` from
 `messaging(_:didReceiveRegistrationToken:)`; see [FIREBASE.md](FIREBASE.md).
 
+From Flutter, the same call is `await ARYPush.setFCMToken(token)` — see
+[FLUTTER.md](FLUTTER.md#push-tokens-are-not-the-same-value-on-both-platforms).
+
 Registration failures are logged, never thrown. The usual causes are the Simulator without a
 paired Mac, a missing Push Notifications capability, or no network at launch.
+
+### When the token stays null
+
+The SDK asks iOS to register only once notifications are authorized, because iOS issues no token
+before that. So a null token means one of:
+
+| Cause | How to tell |
+| --- | --- |
+| Read too early | No error logged. The token arrives asynchronously — use `addTokenRefreshListener` |
+| Simulator | No error logged, and no token will ever arrive. Use a device |
+| No Push Notifications capability | `APNs registration failed` in the log, mentioning the entitlement |
+| Permission not granted | `getPermissionStatus()` is not authorized |
+
+The capability is the one that catches cross-platform teams: Android needs nothing in the project
+file to get an FCM token, so the same code appears to work there and returns null on iOS.
 
 ## Topics
 

@@ -155,6 +155,20 @@ extension ARYPushPlugin {
         case "getPushProvider":
             result(ARYPush.getPushProvider().wireValue)
 
+        case "setFCMToken":
+            guard let token = arguments["token"] as? String, !token.isEmpty else {
+                result(
+                    FlutterError(
+                        code: "invalid_argument",
+                        message: "token must not be blank",
+                        details: nil
+                    )
+                )
+                return
+            }
+            ARYPush.setFCMToken(token)
+            result(nil)
+
         case "login":
             guard let userId = arguments["userId"] as? String, !userId.isEmpty else {
                 result(

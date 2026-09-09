@@ -43,6 +43,30 @@ In order of likelihood:
 The token has not been issued yet. It is requested asynchronously during initialization; use
 `addTokenRefreshListener` rather than reading it synchronously right after `initialize()`.
 
+**Android returns a token, iOS returns null**
+
+The most common report, and usually one of four things. Work down in order — the first two cost
+nothing to check:
+
+1. **You read it too early.** Android almost always has a cached FCM token within milliseconds;
+   iOS needs a network round trip to Apple, so the same code passes on one platform and returns
+   null on the other. Use `addTokenRefreshListener` / `ARYPush.onTokenRefresh`, which replays a
+   token that arrived before you subscribed.
+2. **You are on the Simulator.** It never receives an APNs device token. Use a real device.
+3. **The Push Notifications capability is missing.** `flutter create` and `xcodegen` do not add
+   it, and without the resulting `aps-environment` entitlement iOS issues no token at all. Xcode ›
+   Runner target › Signing & Capabilities › + Capability › Push Notifications. You will see
+   `APNs registration failed` in the log when this is the cause.
+4. **Permission has not been granted.** The SDK does not call `registerForRemoteNotifications()`
+   until the user authorizes, because iOS issues no token before that. Check
+   `getPermissionStatus()`.
+
+If a token does arrive but your Firebase-based backend cannot send to it, it is the wrong *kind*
+of token rather than a missing one: iOS gives the SDK an **APNs device token**, which is not an
+FCM registration token. Check `getPushProvider()`, and see
+[FLUTTER.md](FLUTTER.md#push-tokens-are-not-the-same-value-on-both-platforms) or
+[IOS.md](IOS.md#tokens).
+
 ## Notifications do not appear
 
 Work down this list in order.

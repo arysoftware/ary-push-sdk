@@ -95,6 +95,24 @@ class ARYPush {
   static Future<PushProvider> getPushProvider() async =>
       PushProvider.fromWire(await _platform.invoke<String>('getPushProvider'));
 
+  /// Hands the SDK an FCM registration token.
+  ///
+  /// Only needed on **iOS**, and only when the application sends through Firebase rather than
+  /// straight to APNs. iOS gives the SDK an APNs device token, which is a different value from an
+  /// FCM registration token; a backend that sends through Firebase must be given the Firebase one,
+  /// and only Firebase knows it.
+  ///
+  /// ```dart
+  /// FirebaseMessaging.instance.onTokenRefresh.listen(ARYPush.setFCMToken);
+  /// final String? token = await FirebaseMessaging.instance.getToken();
+  /// if (token != null) await ARYPush.setFCMToken(token);
+  /// ```
+  ///
+  /// Accepted and ignored on Android, where FCM tokens reach the SDK directly, so this can be
+  /// called unconditionally from shared code.
+  static Future<void> setFCMToken(String token) =>
+      _platform.invoke<void>('setFCMToken', <String, Object?>{'token': token});
+
   /// Emits whenever the push token changes.
   ///
   /// A token that arrived before this stream was listened to is replayed, so a subscription set

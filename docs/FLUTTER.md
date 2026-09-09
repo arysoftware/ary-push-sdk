@@ -23,12 +23,28 @@ release, which is what a production project should do before it ships.
 
 The plugin is a bridge. The native SDKs still need what they always need:
 
-| Platform | Requirement |
-| --- | --- |
-| Android | `google-services.json` and the `com.google.gms.google-services` plugin in `android/app` |
-| Android | Nothing. The plugin declares the JitPack repository and the SDK coordinate for you |
-| iOS | Push Notifications capability and, for silent messages, Background Modes > Remote notifications |
-| iOS | `pod 'ARYPush', :git => '...', :tag => 'v1.0.0'` in `ios/Podfile`, unless your private spec repo carries it |
+| Platform | What you must add | What the plugin handles |
+| --- | --- | --- |
+| Android | `google-services.json` in `android/app`, and the `com.google.gms.google-services` plugin | The JitPack repository and the native SDK coordinate |
+| iOS | **Push Notifications capability** in Xcode, and for silent messages **Background Modes › Remote notifications** | The pod — its podspec vendors the Swift SDK, so no `Podfile` entry |
+
+### iOS: the capability is not optional, and `flutter create` does not add it
+
+This is the difference that catches most teams out. Android works the moment
+`google-services.json` is in place, because FCM needs nothing from the project file. iOS issues
+**no token at all** without the `aps-environment` entitlement, and that entitlement only appears
+once you add the capability by hand:
+
+1. Open `ios/Runner.xcworkspace` in Xcode — the workspace, not the project.
+2. Select the **Runner** target › **Signing & Capabilities**.
+3. **+ Capability** › **Push Notifications**.
+4. For silent/background messages, **+ Capability** › **Background Modes** › tick **Remote notifications**.
+
+Step 3 creates `ios/Runner/Runner.entitlements` with `aps-environment`. Commit it. Without it the
+SDK logs `APNs registration failed` and `getPushToken()` stays null forever.
+
+You also need a **real device**. The iOS Simulator never receives an APNs device token, so a null
+token there is expected rather than a fault.
 
 ### Android toolchain
 
@@ -169,6 +185,50 @@ final PushNotification? initial = await ARYPush.getInitialNotification();
 ```
 
 Use one or the other, not both: the event is delivered exactly once.
+
+## Push tokens are not the same value on both platforms
+
+`getPushToken()` returns one string on both platforms, but it is not the same *kind* of string,
+and the backend has to send through the matching transport. `getPushProvider()` says which:
+
+| Platform | What you get | Provider |
+| --- | --- | --- |
+| Android | FCM registration token, straight from Firebase | `fcm` |
+| iOS, by default | **APNs device token**, from the app delegate | `apns` |
+| iOS, when you call `setFCMToken` | FCM registration token | `fcm` |
+
+### If your backend sends through Firebase, iOS needs one extra line
+
+Firebase issues an iOS registration token only after it has been handed the APNs token, and only
+Firebase knows the result. The SDK cannot read it for you, so pass it on:
+
+```dart
+await ARYPush.initialize();
+
+// Whatever Firebase has now, plus every refresh.
+FirebaseMessaging.instance.onTokenRefresh.listen(ARYPush.setFCMToken);
+final String? fcmToken = await FirebaseMessaging.instance.getToken();
+if (fcmToken != null) await ARYPush.setFCMToken(fcmToken);
+```
+
+`setFCMToken` is accepted and ignored on Android, where FCM tokens already reach the SDK
+directly, so this can sit in shared code with no platform check.
+
+Skip it entirely if your backend talks to APNs directly — then the APNs token is the one you
+want, and the SDK already has it.
+
+### Reading the token
+
+It arrives asynchronously, and on iOS that means a network round trip to Apple. Android usually
+has a cached FCM token within milliseconds, so code that reads the token immediately after
+`initialize()` **appears to work on Android and returns null on iOS**. Listen instead:
+
+```dart
+ARYPush.onTokenRefresh.listen((String token) => debugPrint('token: $token'));
+```
+
+The stream replays a token that arrived before you subscribed, so a listener attached during
+startup never misses the first one.
 
 ## Working with Firebase already
 
