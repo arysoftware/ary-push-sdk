@@ -69,12 +69,30 @@ class OkHttpRestClientTest {
     }
 
     @Test
-    fun `requests are sent to the versioned path`() = runTest {
+    fun `no version segment is added to the base URL`() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
 
         client().post("installations", mapOf("a" to 1), parser = IgnoreBody)
 
-        assertEquals("/v1/installations", server.takeRequest().path)
+        assertEquals("/installations", server.takeRequest().path)
+    }
+
+    @Test
+    fun `a base URL with its own path is used exactly as given`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+        val client = OkHttpRestClient(
+            // Trailing slash included on purpose: it must not produce a double slash.
+            backendConfig = PushBackendConfig(baseUrl = server.url("/push/").toString()),
+            networkConfig = NetworkConfig(),
+            retryConfig = retry,
+            authProvider = null,
+            device = device,
+            installationIdProvider = { "install-1" }
+        )
+
+        client.post("/api/notifications/devices/register", null, parser = IgnoreBody)
+
+        assertEquals("/push/api/notifications/devices/register", server.takeRequest().path)
     }
 
     @Test
@@ -202,7 +220,7 @@ class OkHttpRestClientTest {
 
         client().delete("installations/install-1/tags", query = mapOf("keys" to "a,b"))
 
-        assertEquals("/v1/installations/install-1/tags?keys=a%2Cb", server.takeRequest().path)
+        assertEquals("/installations/install-1/tags?keys=a%2Cb", server.takeRequest().path)
     }
 
     @Test

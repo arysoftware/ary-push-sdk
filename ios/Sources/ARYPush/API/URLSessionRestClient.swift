@@ -288,17 +288,17 @@ private extension URLSessionRestClient {
     static var platform: String { "ios" }
     static var maxLoggedErrorBody: Int { 512 }
 
-    /// Resolves a request path against the base URL.
+    /// Resolves a request path against the base URL, exactly as configured. Identical to Android.
     ///
-    /// A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`. Anything
-    /// else is relative to the versioned root, `{baseURL}/{apiVersion}/`. Identical to Android.
+    /// No version segment is added: `https://easypanel.host` plus `/api/segments/list` is
+    /// `https://easypanel.host/api/segments/list`. The path is joined with a single `/` whether or
+    /// not either side carries one, so a trailing slash on the base URL is harmless.
     ///
     /// `projectId` is appended to every request when configured: the push API scopes every call
     /// to a project, so it belongs here rather than being repeated at each call site.
     func buildURL(path: String, query: [String: Any?]) -> URL? {
-        let absolute = path.hasPrefix("/")
-            ? backendConfig.normalizedBaseURL + path
-            : "\(backendConfig.normalizedBaseURL)/\(backendConfig.apiVersion)/\(path)"
+        let relativePath = String(path.drop(while: { $0 == "/" }))
+        let absolute = "\(backendConfig.normalizedBaseURL)/\(relativePath)"
         guard var components = URLComponents(string: absolute) else { return nil }
 
         var items: [URLQueryItem] = []

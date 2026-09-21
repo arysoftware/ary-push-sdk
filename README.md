@@ -77,10 +77,10 @@ ARYPush.initialize(
     this,
     ARYPushConfig(
         backend = PushBackendConfig(
-            baseUrl = "https://push-api.ary.com",
+            baseUrl = "https://easypanel.host",
             applicationId = "wallet_android",
             projectId = "YOUR_PROJECT_ID",
-            authToken = "YOUR_BEARER_TOKEN"
+            authToken = "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"
         )
     )
 )
@@ -93,10 +93,10 @@ then enable the **Push Notifications** capability.
 ARYPush.initialize(
     ARYPushConfig(
         backend: PushBackendConfig(
-            baseURL: "https://push-api.ary.com",
+            baseURL: "https://easypanel.host",
             applicationId: "wallet_ios",
             projectId: "YOUR_PROJECT_ID",
-            authToken: "YOUR_BEARER_TOKEN"
+            authToken: "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"
         )
     )
 )
@@ -116,10 +116,10 @@ dependencies:
 await ARYPush.initialize(
   const ARYPushConfig(
     backend: PushBackendConfig(
-      baseUrl: 'https://push-api.ary.com',
+      baseUrl: 'https://easypanel.host',
       applicationId: 'wallet_flutter',
       projectId: 'YOUR_PROJECT_ID',
-      authToken: 'YOUR_BEARER_TOKEN',
+      authToken: 'ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx',
     ),
   ),
 );
@@ -173,7 +173,7 @@ access token or credential-bearing URL.
 | `com.github.arysoftware:ary-push-sdk` | Maven coordinate, as JitPack serves it |
 | `ARYPush` | iOS module and public type prefix |
 | `ary_push` | Flutter package, platform channels and storage key namespace |
-| `push-api.ary.com` | Example backend host, never hardcoded in SDK code |
+| `easypanel.host` | Example backend host. Passed to the SDK as-is, never hardcoded in SDK code |
 
 These were applied from the repository's neutral placeholders with
 [scripts/rename_namespace.sh](scripts/rename_namespace.sh), which stays in the tree so the same

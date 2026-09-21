@@ -36,7 +36,7 @@ internal object ManifestConfigReader {
     private const val KEY_COLOR = PREFIX + "notification_color"
     private const val KEY_BASE_URL = PREFIX + "backend_base_url"
     private const val KEY_APPLICATION_ID = PREFIX + "application_id"
-    private const val KEY_API_VERSION = PREFIX + "backend_api_version"
+    private const val KEY_PROJECT_ID = PREFIX + "project_id"
     private const val KEY_FOREGROUND_DISPLAY = PREFIX + "foreground_display"
     private const val KEY_DISPLAY_NOTIFICATIONS = PREFIX + "display_notifications"
     private const val KEY_AUTO_REQUEST_PERMISSION = PREFIX + "auto_request_permission"
@@ -57,7 +57,9 @@ internal object ManifestConfigReader {
                 PushBackendConfig(
                     baseUrl = it,
                     applicationId = meta.getString(KEY_APPLICATION_ID)?.takeIf(String::isNotBlank),
-                    apiVersion = meta.getString(KEY_API_VERSION)?.takeIf(String::isNotBlank) ?: "v1"
+                    // The bearer token is deliberately not read here: manifest meta-data ships in
+                    // the APK as plain text. Pass authToken to ARYPush.initialize() at runtime.
+                    projectId = meta.getString(KEY_PROJECT_ID)?.takeIf(String::isNotBlank)
                 )
             }.onFailure { error ->
                 PushLogger.e(error) { "Invalid $KEY_BASE_URL in the manifest; ignoring it" }

@@ -74,7 +74,8 @@ void main() {
           arguments['backend']! as Map<Object?, Object?>;
       expect(backend['baseUrl'], 'https://push-api.ary.com');
       expect(backend['applicationId'], 'wallet_flutter');
-      expect(backend['apiVersion'], 'v1');
+      expect(backend.containsKey('apiVersion'), isFalse,
+          reason: 'no version segment is configured or sent');
     });
   });
 

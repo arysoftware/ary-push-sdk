@@ -1,8 +1,3 @@
-| Source | When |
-| --- | --- |
-| JitPack, `com.github.arysoftware:ary-push-sdk` | The default. Nothing to configure |
-| A self-hosted Maven repository | Set `arySdkCoordinate` and `aryMavenUrl` |
-| Gradle project `:ary-push-sdk` | A local checkout, while working on the SDK |
 # Flutter integration
 
 ## Dependency
@@ -16,7 +11,7 @@ dependencies:
 ```
 
 The repository is public, so this needs no SSH key and no deploy key. With no `ref` it tracks the
-default branch, which is the right default while the SDK is moving; add `ref: v1.0.0` to pin a
+default branch, which is the right default while the SDK is moving; add `ref: v1.1.0` to pin a
 release, which is what a production project should do before it ships.
 
 ## Native prerequisites
@@ -100,10 +95,10 @@ Future<void> main() async {
       enableLogging: true,
       logLevel: PushLogLevel.debug,
       backend: PushBackendConfig(
-        baseUrl: 'https://push-api.ary.com',
+        baseUrl: 'https://easypanel.host',
         applicationId: 'wallet_flutter',
         projectId: 'YOUR_PROJECT_ID',
-        authToken: 'YOUR_BEARER_TOKEN',
+        authToken: 'ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx',
       ),
     ),
   );

@@ -12,7 +12,7 @@ import Foundation
 /// ```xml
 /// <key>ARYPush</key>
 /// <dict>
-///     <key>BackendBaseURL</key><string>https://push-api.ary.com</string>
+///     <key>BackendBaseURL</key><string>https://easypanel.host</string>
 ///     <key>ApplicationId</key><string>wallet_ios</string>
 ///     <key>EnableLogging</key><false/>
 /// </dict>
@@ -36,7 +36,6 @@ enum InfoPlistConfigReader {
             backend = PushBackendConfig(
                 baseURL: baseURL,
                 applicationId: dictionary["ApplicationId"] as? String,
-                apiVersion: dictionary["BackendApiVersion"] as? String ?? "v1",
                 projectId: (dictionary["ProjectId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             )
         }

@@ -101,9 +101,12 @@ public struct HeaderNames {
 /// never needs rebuilding for development, QA, staging or production. Omit it entirely and the
 /// SDK runs against ``NoopPushBackend``, which keeps every push feature working with no server.
 public struct PushBackendConfig {
+    /// Base URL of the push API, used exactly as given, e.g. `https://easypanel.host`.
+    ///
+    /// No version segment is ever added: requests go to `{baseURL}/api/...`. A trailing slash is
+    /// ignored. Must be HTTPS in production.
     public let baseURL: String
     public let applicationId: String?
-    public let apiVersion: String
     public let defaultHeaders: [String: String]
     public let headerNames: HeaderNames
 
@@ -121,7 +124,6 @@ public struct PushBackendConfig {
     public init(
         baseURL: String,
         applicationId: String? = nil,
-        apiVersion: String = "v1",
         defaultHeaders: [String: String] = [:],
         headerNames: HeaderNames = HeaderNames(),
         projectId: String? = nil,
@@ -129,15 +131,17 @@ public struct PushBackendConfig {
     ) {
         self.baseURL = baseURL
         self.applicationId = applicationId
-        self.apiVersion = apiVersion
         self.defaultHeaders = defaultHeaders
         self.headerNames = headerNames
         self.projectId = projectId
         self.authToken = authToken
     }
 
+    /// The base URL without trailing slashes, so joining a path never produces `//`.
     var normalizedBaseURL: String {
-        baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        var trimmed = baseURL
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        return trimmed
     }
 
     var isPlaintext: Bool { baseURL.hasPrefix("http://") }
@@ -154,7 +158,7 @@ extension PushBackendConfig: CustomStringConvertible, CustomReflectable {
 
     public var description: String {
         "PushBackendConfig(baseURL: \(baseURL), applicationId: \(applicationId ?? "nil"), "
-            + "projectId: \(projectId ?? "nil"), apiVersion: \(apiVersion), "
+            + "projectId: \(projectId ?? "nil"), "
             + "authToken: \(maskedAuthToken))"
     }
 
@@ -165,7 +169,6 @@ extension PushBackendConfig: CustomStringConvertible, CustomReflectable {
                 "baseURL": baseURL,
                 "applicationId": applicationId as Any,
                 "projectId": projectId as Any,
-                "apiVersion": apiVersion,
                 "authToken": maskedAuthToken
             ],
             displayStyle: .struct

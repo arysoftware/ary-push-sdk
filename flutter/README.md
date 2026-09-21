@@ -19,7 +19,7 @@ dependencies:
 ```
 
 The repository is public, so no key or token is involved. With no `ref` this tracks the default
-branch; add `ref: v1.0.0` to pin a release before shipping.
+branch; add `ref: v1.1.0` to pin a release before shipping.
 
 ```dart
 Future<void> main() async {
@@ -72,7 +72,7 @@ Both carry committed `android/` and `ios/` folders, so they run without a `flutt
 
 Both examples declare the published GitHub package, exactly as a real application does, so
 reading them tells you the truth about integration. That also means they resolve
-`ary_push v1.0.0` from GitHub, and the native Android SDK from JitPack.
+`ary_push` from GitHub's default branch, and the native Android SDK from JitPack.
 
 While working **on** the SDK you want the working tree instead. Drop a `pubspec_overrides.yaml`
 beside the example's `pubspec.yaml`:

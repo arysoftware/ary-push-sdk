@@ -43,7 +43,6 @@ internal object FlutterConfigMapper {
             PushBackendConfig(
                 baseUrl = baseUrl,
                 applicationId = map.string("applicationId")?.takeIf { it.isNotBlank() },
-                apiVersion = map.string("apiVersion")?.takeIf { it.isNotBlank() } ?: "v1",
                 projectId = map.string("projectId")?.takeIf { it.isNotBlank() },
                 authToken = map.string("authToken")?.takeIf { it.isNotBlank() }
             )

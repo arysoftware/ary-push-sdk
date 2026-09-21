@@ -8,11 +8,8 @@ needed in Xcode and no SSH key is involved. Or in a `Package.swift`:
 
 ```swift
 dependencies: [
-    // Once v1.0.0 is tagged:
-    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
-
-    // Before any tag exists, track the branch:
-    // .package(url: "https://github.com/arysoftware/ary-push-sdk.git", branch: "main")
+    // Tracks the latest commit. Swap for `from: "1.1.0"` once that release is tagged.
+    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", branch: "main")
 ]
 ```
 
@@ -54,10 +51,10 @@ ARYPush.initialize(
         logLevel: .debug,
         foregroundDisplay: .show,
         backend: PushBackendConfig(
-            baseURL: "https://push-api.ary.com",
+            baseURL: "https://easypanel.host",
             applicationId: "wallet_ios",
             projectId: "YOUR_PROJECT_ID",
-            authToken: "YOUR_BEARER_TOKEN"
+            authToken: "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"
         )
     )
 )
@@ -74,8 +71,9 @@ The backend API, every request and response, is in the
 ```xml
 <key>ARYPush</key>
 <dict>
-    <key>BackendBaseURL</key><string>https://push-api.ary.com</string>
+    <key>BackendBaseURL</key><string>https://easypanel.host</string>
     <key>ApplicationId</key><string>wallet_ios</string>
+    <key>ProjectId</key><string>YOUR_PROJECT_ID</string>
     <key>EnableLogging</key><false/>
     <key>ForegroundDisplay</key><string>show</string>
     <key>ProxyApplicationDelegate</key><true/>
@@ -86,6 +84,10 @@ The backend API, every request and response, is in the
 Necessary as well as convenient: a silent notification can start the process before any host code
 runs, and the SDK still has to know which backend to talk to. Values passed to `initialize(_:)`
 always win.
+
+`BackendBaseURL` is used exactly as written — no `/v1` or other version segment is added. There is
+deliberately no key for the bearer token: `Info.plist` ships inside the app as plain text, so pass
+`authToken` to `initialize(_:)` at runtime.
 
 ## Delegate safety
 

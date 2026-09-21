@@ -49,12 +49,12 @@ class PushBackendConfig {
     this.applicationId,
     this.projectId,
     this.authToken,
-    this.apiVersion = 'v1',
   });
 
-  /// Base URL of the push API, for example `https://push-api.ary.com`.
+  /// Base URL of the push API, used exactly as given, for example `https://easypanel.host`.
   ///
-  /// Must be HTTPS in production.
+  /// No version segment is ever added: requests go to `{baseUrl}/api/...`. A trailing slash is
+  /// ignored. Must be HTTPS in production.
   final String baseUrl;
 
   /// Optional PUBLIC application identifier, for example `wallet_flutter`.
@@ -74,16 +74,12 @@ class PushBackendConfig {
   /// Never logged by the SDK, and masked in [toString].
   final String? authToken;
 
-  /// API version prefix, used only by endpoints addressed relative to a versioned root.
-  final String apiVersion;
-
   /// Platform channel representation.
   Map<String, dynamic> toMap() => <String, dynamic>{
         'baseUrl': baseUrl,
         'applicationId': applicationId,
         'projectId': projectId,
         'authToken': authToken,
-        'apiVersion': apiVersion,
       };
 
   /// Masks [authToken], so a configuration that is printed while debugging does not leak it.

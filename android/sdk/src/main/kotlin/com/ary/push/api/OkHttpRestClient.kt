@@ -210,21 +210,17 @@ internal class OkHttpRestClient(
     // ------------------------------------------------------------------ request construction
 
     /**
-     * Resolves a request path against the base URL.
+     * Resolves a request path against the base URL, exactly as configured.
      *
-     * A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`. Anything
-     * else is relative to the versioned root, `{baseUrl}/{apiVersion}/`, which is what a
-     * host-supplied [RestClient] consumer written against earlier versions expects.
+     * No version segment is added: `https://easypanel.host` plus `/api/segments/list` is
+     * `https://easypanel.host/api/segments/list`. The path is joined with a single `/` whether or
+     * not either side carries one, so a trailing slash on the base URL is harmless.
      *
      * `projectId` is appended to every request when configured: the push API scopes every call
      * to a project, so it belongs here rather than being repeated at each call site.
      */
     private fun buildUrl(path: String, query: Map<String, Any?>): HttpUrl? {
-        val base = if (path.startsWith("/")) {
-            backendConfig.normalizedBaseUrl + path
-        } else {
-            "${backendConfig.normalizedBaseUrl}/${backendConfig.apiVersion}/$path"
-        }
+        val base = "${backendConfig.normalizedBaseUrl}/${path.trimStart('/')}"
         val builder = base.toHttpUrlOrNull()?.newBuilder() ?: return null
         backendConfig.projectId?.takeIf { it.isNotBlank() }?.let {
             builder.setQueryParameter(QUERY_PROJECT_ID, it)

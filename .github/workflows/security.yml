@@ -74,7 +74,7 @@ jobs:
         run: |
           # Environment selection belongs to the consuming application. Doc comments may show an
           # example host, so comment lines are filtered out and executable lines are not.
-          if grep -rIn 'push-api[a-z-]*\.ary\.com' \
+          if grep -rInE 'push-api[a-z-]*\.ary\.com|easypanel\.host' \
               --include='*.kt' --include='*.swift' \
               android/sdk/src/main ios/Sources flutter/lib flutter/android/src flutter/ios/Classes \
               | grep -vE '^[^:]*:[0-9]+:[[:space:]]*(///|//|/\*|\*)'; then

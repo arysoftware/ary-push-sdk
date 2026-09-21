@@ -35,10 +35,10 @@ Future<void> main() async {
       defaultChannelId: 'ary_push_campaigns',
       defaultChannelName: 'Offers and updates',
       backend: PushBackendConfig(
-        baseUrl: 'https://push-api-dev.ary.com',
+        baseUrl: 'https://easypanel.host',
         applicationId: 'legacy_flutter',
         projectId: 'YOUR_PROJECT_ID',
-        authToken: 'YOUR_BEARER_TOKEN',
+        authToken: 'ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx',
       ),
     ),
   );

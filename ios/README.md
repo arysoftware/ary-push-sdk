@@ -10,8 +10,8 @@ Or in a `Package.swift`:
 
 ```swift
 dependencies: [
-    // Once v1.0.0 is tagged; before then use `branch: "main"`.
-    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", from: "1.0.0")
+    // Tracks the latest commit. Swap for `from: "1.1.0"` once that release is tagged.
+    .package(url: "https://github.com/arysoftware/ary-push-sdk.git", branch: "main")
 ]
 ```
 

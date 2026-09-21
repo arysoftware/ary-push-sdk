@@ -24,11 +24,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 logLevel: .debug,
                 // Omit `backend` entirely and everything below still works, with no server.
                 backend: PushBackendConfig(
-                    baseURL: "https://push-api-dev.ary.com",
+                    baseURL: "https://easypanel.host",
                     applicationId: "sample_ios",
                     projectId: "YOUR_PROJECT_ID",
                     // In a real app, fetch this from your own login flow rather than hardcoding it.
-                    authToken: "YOUR_BEARER_TOKEN"
+                    authToken: "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"
                 )
             )
         )

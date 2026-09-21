@@ -25,9 +25,9 @@ be committed by accident.
 ```kotlin
 PushBackendConfig(
     baseUrl = "...",
-    applicationId = "wallet_android",   // public, not a secret
-    projectId = "YOUR_PROJECT_ID",      // public, not a secret
-    authToken = "YOUR_BEARER_TOKEN"     // a credential
+    applicationId = "wallet_android",                        // public, not a secret
+    projectId = "YOUR_PROJECT_ID",                           // public, not a secret
+    authToken = "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"    // a credential
 )
 ```
 
@@ -135,17 +135,26 @@ The complete list. Conduct a privacy review against this table.
 | Provider | `fcm`, `apns` | Which transport to send through |
 | Platform | `android`, `ios` | Payload shape |
 | App version and build | `5.2.0`, `520` | Targeting and debugging |
-| SDK version | `1.0.0` | Support |
+| SDK version | `1.1.0` | Support |
 | Notifications enabled | `true` | Suppress sends to unreachable devices |
-| User ID | your own id | Only when the app calls `login()` |
-| Tags | `subscription=premium` | Only what the app sets |
-| Topics | `sports` | Only what the app subscribes to |
+| Application ID | `wallet_android` | Which app the device belongs to |
 | OS version | `14` | Optional |
 | Device model | `Pixel 8` | Optional; a model, not a device |
 | Locale | `en-PK` | Optional; localisation |
 | Timezone | `Asia/Karachi` | Optional; send-time targeting |
 
 The last four are the `device` block and are omitted entirely with `collectDeviceInfo = false`.
+
+### Stored on the device, never sent
+
+The push API has no endpoint for these, so they stay in the SDK's local store:
+
+| Field | Set by |
+| --- | --- |
+| User ID | `login()` |
+| Tags | `addTags()` |
+| Topics | `subscribeToTopic()`. On Android, FCM itself learns the subscription |
+| Engagement events | Recorded automatically on receive and open |
 
 ### Never collected
 

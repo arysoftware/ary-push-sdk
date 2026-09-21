@@ -20,7 +20,7 @@ implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
 ```
 
 No credentials: the repository is public and JitPack builds it on demand. The version is a git
-reference — `main-SNAPSHOT` for the tip of `main`, or a tag such as `v1.0.0` to pin a release,
+reference — `main-SNAPSHOT` for the tip of `main`, or a tag such as `v1.1.0` to pin a release,
 which is what a shipping application should do.
 
 ## Initialization
@@ -51,7 +51,7 @@ ARYPush.initialize(
             baseUrl = BuildConfig.PUSH_API_URL,
             applicationId = "wallet_android",
             projectId = "YOUR_PROJECT_ID",
-            authToken = "YOUR_BEARER_TOKEN",
+            authToken = "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx",
         ),
     ),
 )
@@ -80,8 +80,9 @@ the process before any host code runs.
     <meta-data android:name="com.ary.push.default_channel_name" android:value="General" />
     <meta-data android:name="com.ary.push.notification_icon" android:resource="@drawable/ic_notification" />
     <meta-data android:name="com.ary.push.notification_color" android:resource="@color/brand" />
-    <meta-data android:name="com.ary.push.backend_base_url" android:value="https://push-api.ary.com" />
+    <meta-data android:name="com.ary.push.backend_base_url" android:value="https://easypanel.host" />
     <meta-data android:name="com.ary.push.application_id" android:value="wallet_android" />
+    <meta-data android:name="com.ary.push.project_id" android:value="YOUR_PROJECT_ID" />
     <meta-data android:name="com.ary.push.foreground_display" android:value="SHOW" />
     <meta-data android:name="com.ary.push.display_notifications" android:value="true" />
     <meta-data android:name="com.ary.push.auto_request_permission" android:value="false" />
@@ -90,6 +91,10 @@ the process before any host code runs.
 ```
 
 Values passed to `initialize(context, config)` always win over these.
+
+`backend_base_url` is used exactly as written — no `/v1` or other version segment is added. The
+bearer token has no meta-data key on purpose: manifest values ship in the APK as plain text, so
+pass `authToken` to `initialize` at runtime.
 
 ### Automatic initialization
 

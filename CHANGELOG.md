@@ -36,6 +36,8 @@ collection in `postman/`.
 - **`projectId` and `authToken`** on `PushBackendConfig`, on Android, iOS and Flutter. The token is
   masked whenever a configuration is printed, and is deliberately not read from `Info.plist`.
   When an `AuthProvider` is also configured it wins; the static token is the fallback.
+- **`com.ary.push.project_id`** manifest meta-data on Android, matching iOS's `ProjectId` in
+  `Info.plist`. Neither reads the bearer token, which would ship in the app as plain text.
 - **`subscribeToSegment(segmentId)`** on all three platforms. A direct call, not queued, that
   reports whether the server accepted it.
 - **`setFCMToken(token)`** in Flutter, so an app that sends to iOS through Firebase can supply the
@@ -69,6 +71,11 @@ collection in `postman/`.
 
 ### Removed
 
+- **`apiVersion`** from `PushBackendConfig` on Android, iOS and Flutter, from the native
+  configuration maps, the Android manifest reader (`backend_api_version`) and the iOS
+  `Info.plist` reader (`BackendApiVersion`). The base URL is now used exactly as the app passes it
+  — e.g. `https://easypanel.host` — with no `/v1` or any other version segment added. Callers that
+  passed `apiVersion` must drop the argument.
 - Documentation for the retired API: `REST_API.md`, `BACKEND.md`, `BACKEND_IMPLEMENTATION.md`, and
   the overlapping `QUICK_START.md` and `INTEGRATION.md`, all superseded by the specification.
 

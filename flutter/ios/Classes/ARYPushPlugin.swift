@@ -282,7 +282,6 @@ enum FlutterConfigMapper {
             backend = PushBackendConfig(
                 baseURL: baseURL,
                 applicationId: backendMap["applicationId"] as? String,
-                apiVersion: backendMap["apiVersion"] as? String ?? "v1",
                 projectId: (backendMap["projectId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                 authToken: (backendMap["authToken"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             )

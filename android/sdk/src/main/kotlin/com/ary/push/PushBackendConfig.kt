@@ -10,7 +10,12 @@ package com.ary.push
  * keeps every push feature working with no server at all.
  */
 public data class PushBackendConfig @JvmOverloads constructor(
-    /** Base URL of the push API, e.g. `https://push-api.ary.com`. Must be HTTPS in production. */
+    /**
+     * Base URL of the push API, used exactly as given, e.g. `https://easypanel.host`.
+     *
+     * No version segment is ever added: requests go to `{baseUrl}/api/...`. A trailing slash is
+     * ignored. Must be HTTPS in production.
+     */
     public val baseUrl: String,
 
     /**
@@ -20,9 +25,6 @@ public data class PushBackendConfig @JvmOverloads constructor(
      * and the backend must never treat it as authentication.
      */
     public val applicationId: String? = null,
-
-    /** API version prefix. Endpoints are always versioned. */
-    public val apiVersion: String = "v1",
 
     /** Extra static headers merged into every SDK request. Never put secrets here. */
     public val defaultHeaders: Map<String, String> = emptyMap(),
@@ -50,7 +52,6 @@ public data class PushBackendConfig @JvmOverloads constructor(
         require(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
             "baseUrl must be an absolute http(s) URL"
         }
-        require(apiVersion.isNotBlank()) { "apiVersion must not be blank" }
     }
 
     /**
@@ -61,7 +62,7 @@ public data class PushBackendConfig @JvmOverloads constructor(
      */
     override fun toString(): String =
         "PushBackendConfig(baseUrl=$baseUrl, applicationId=$applicationId, " +
-            "projectId=$projectId, apiVersion=$apiVersion, " +
+            "projectId=$projectId, " +
             "authToken=${if (authToken.isNullOrEmpty()) "null" else "***"}, " +
             "defaultHeaders=${defaultHeaders.keys}, headerNames=$headerNames)"
 

@@ -30,10 +30,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
                 enableLogging: true,
                 logLevel: .debug,
                 backend: PushBackendConfig(
-                    baseURL: "https://push-api-dev.ary.com",
+                    baseURL: "https://easypanel.host",
                     applicationId: "legacy_ios",
                     projectId: "YOUR_PROJECT_ID",
-                    authToken: "YOUR_BEARER_TOKEN"
+                    authToken: "ary_device_key_xxxxxxxxxxxxxxxxxxxxxxxx"
                 )
             )
         )

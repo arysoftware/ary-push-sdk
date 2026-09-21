@@ -7,8 +7,8 @@ package com.ary.push.api
  * retries, and nothing about installations, tokens or tags. Push business logic lives in
  * [com.ary.push.backend.PushBackend] implementations.
  *
- * A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`; anything
- * else is relative to `{baseUrl}/{apiVersion}/`. `projectId` is added to every request.
+ * Paths are joined to the base URL exactly as configured, with no version segment:
+ * `/api/segments/list` becomes `{baseUrl}/api/segments/list`. `projectId` is added to every request.
  * All methods are cancellation-aware: cancelling the calling coroutine cancels the HTTP call.
  */
 public interface RestClient {
