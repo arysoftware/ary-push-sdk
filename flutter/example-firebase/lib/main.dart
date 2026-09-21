@@ -37,6 +37,8 @@ Future<void> main() async {
       backend: PushBackendConfig(
         baseUrl: 'https://push-api-dev.ary.com',
         applicationId: 'legacy_flutter',
+        projectId: 'YOUR_PROJECT_ID',
+        authToken: 'YOUR_BEARER_TOKEN',
       ),
     ),
   );

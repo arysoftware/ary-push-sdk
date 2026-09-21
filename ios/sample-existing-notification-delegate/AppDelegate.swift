@@ -31,7 +31,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
                 logLevel: .debug,
                 backend: PushBackendConfig(
                     baseURL: "https://push-api-dev.ary.com",
-                    applicationId: "legacy_ios"
+                    applicationId: "legacy_ios",
+                    projectId: "YOUR_PROJECT_ID",
+                    authToken: "YOUR_BEARER_TOKEN"
                 )
             )
         )

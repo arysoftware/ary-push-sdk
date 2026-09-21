@@ -23,17 +23,27 @@ be committed by accident.
 ### The application identifier is not a secret
 
 ```kotlin
-PushBackendConfig(baseUrl = "...", applicationId = "wallet_android")
+PushBackendConfig(
+    baseUrl = "...",
+    applicationId = "wallet_android",   // public, not a secret
+    projectId = "YOUR_PROJECT_ID",      // public, not a secret
+    authToken = "YOUR_BEARER_TOKEN"     // a credential
+)
 ```
 
-`applicationId` is a **public label** that tells the backend which application a device belongs
-to. It is not authentication, and a backend that treats it as such has no authentication.
-
-Authenticate with the user's own credentials, through `AuthProvider`.
+`applicationId` and `projectId` are **public labels**: they tell the backend which application and
+project a device belongs to. Neither is authentication, and a backend that treats either as such
+has no authentication. The bearer token is what authenticates.
 
 ## Authentication
 
-The SDK never owns credentials. It asks the host application for a token when it needs one:
+Every request carries `Authorization: Bearer <token>`. There are two ways to supply the token.
+
+**A static `authToken`** in `PushBackendConfig` — simplest, and the only option in Flutter. To
+replace it, call `initialize` again with the new value; the SDK reconfigures in place. With a
+static token a `401` is permanent: there is nothing to refresh it with.
+
+**An `AuthProvider`** (Android and iOS) — for tokens that expire:
 
 ```kotlin
 class AppAuthProvider : AuthProvider {
@@ -44,7 +54,19 @@ class AppAuthProvider : AuthProvider {
 
 - Tokens are read per request, so a token refreshed between attempts is actually used.
 - A `401` triggers **one** refresh and **one** retry. Never a loop.
-- An `AuthProvider` that throws degrades to an unauthenticated request, not a crash.
+- An `AuthProvider` that throws, or answers `null`, falls back to the static `authToken` if one is
+  set, and otherwise sends the request unauthenticated — never a crash.
+- When both are configured, the provider wins.
+
+Either way:
+
+- The token is **never logged**. `Authorization` is excluded at every log level, and
+  `PushBackendConfig` masks `authToken` when printed (`toString`, `description`, and on iOS
+  `dump`, which reads through reflection).
+- The token is **not read from `Info.plist`** on iOS, deliberately: that file ships inside the app
+  as plain text. `ProjectId` is.
+- Issue a token **scoped to device registration**, not a user's full-access token. Whatever you
+  pass lives in the device's memory for as long as the SDK runs.
 - Prefer short-lived tokens. A long-lived one on a device is a long-lived one in an attacker's
   hands after a single compromise.
 

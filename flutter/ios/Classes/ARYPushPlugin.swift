@@ -212,10 +212,23 @@ extension ARYPushPlugin {
             result(ARYPush.unsubscribeFromTopic(arguments["topic"] as? String ?? ""))
 
         case "getSegments":
-            // Answered asynchronously: membership is read from the backend.
+            // Answered asynchronously: the project's segment list is read from the backend.
             ARYPush.getSegments { segments in
                 result(segments.map { $0.toDictionary() })
             }
+
+        case "subscribeToSegment":
+            guard let segmentId = arguments["segmentId"] as? String, !segmentId.isEmpty else {
+                result(
+                    FlutterError(
+                        code: "invalid_argument",
+                        message: "segmentId must not be blank",
+                        details: nil
+                    )
+                )
+                return
+            }
+            ARYPush.subscribeToSegment(segmentId) { subscribed in result(subscribed) }
 
         case "getSubscribedTopics":
             result(Array(ARYPush.getSubscribedTopics()).sorted())
@@ -269,7 +282,9 @@ enum FlutterConfigMapper {
             backend = PushBackendConfig(
                 baseURL: baseURL,
                 applicationId: backendMap["applicationId"] as? String,
-                apiVersion: backendMap["apiVersion"] as? String ?? "v1"
+                apiVersion: backendMap["apiVersion"] as? String ?? "v1",
+                projectId: (backendMap["projectId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                authToken: (backendMap["authToken"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             )
         }
 

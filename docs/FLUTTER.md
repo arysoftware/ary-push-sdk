@@ -102,6 +102,8 @@ Future<void> main() async {
       backend: PushBackendConfig(
         baseUrl: 'https://push-api.ary.com',
         applicationId: 'wallet_flutter',
+        projectId: 'YOUR_PROJECT_ID',
+        authToken: 'YOUR_BEARER_TOKEN',
       ),
     ),
   );
@@ -109,6 +111,11 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 ```
+
+Flutter has no `AuthProvider`. To change the bearer token after login, call `initialize` again with
+the new `authToken`; the SDK reconfigures in place and keeps its queue, listeners and
+installation id. The backend API is in the
+[technical specification](ARYPush-Technical-Specification.md).
 
 `ensureInitialized()` first: the plugin talks over platform channels, which need the binding.
 

@@ -62,17 +62,22 @@ correct offline and immediately after a write.
 
 ## Segments
 
-| | |
-| --- | --- |
-| Android | `getSegments { segments -> }`, `getSegments()` (suspend), `isInSegment(name)` |
-| iOS | `getSegments { segments in }`, `await getSegments()`, `await isInSegment(_:)` |
-| Flutter | `await getSegments()`, `await isInSegment(name)` |
+| | List | Subscribe |
+| --- | --- | --- |
+| Android | `getSegments { segments -> }`, `getSegments()` (suspend) | `subscribeToSegment(id) { ok -> }`, `subscribeToSegment(id)` (suspend) |
+| iOS | `getSegments { segments in }`, `await getSegments()` | `subscribeToSegment(id) { ok in }`, `await subscribeToSegment(id)` |
+| Flutter | `await getSegments()` | `await subscribeToSegment(id)` |
 
-Read-only. Segments are groups the backend computes from tags, user identity and device
-attributes; the SDK never evaluates a rule. To change membership, change tags.
+`getSegments()` lists the **project's** segments (`GET /api/segments/list`) — not the segments this
+installation belongs to, which the push API does not expose. `subscribeToSegment(id)` adds this
+installation to one (`POST /api/segments/{id}/subscribers`) and reports whether the server
+accepted it. It is a direct call, not queued, so it reports `false` while offline.
 
 `Segment` carries `id`, `name`, an optional `description` and an optional `joinedAt`. An
 unreachable backend, or no backend at all, yields an empty list rather than an error.
+
+`isInSegment(name)` is **deprecated** on all three platforms. With no membership read it can only
+report whether a segment of that name exists in the project, which is not what its name promises.
 
 ## Topics
 
@@ -137,9 +142,9 @@ listener that attaches.
 | `displayNotifications` | `true` | Android: whether the SDK renders at all |
 | `defaultChannelId` / `Name` | SDK default | Android channel |
 | `smallIconResId`, `accentColor` | app icon, none | Android appearance |
-| `backend` | none | `PushBackendConfig`; omit to run server-less |
+| `backend` | none | `PushBackendConfig`: `baseUrl` (`baseURL` on iOS), `applicationId`, `projectId`, `authToken`. Omit to run server-less |
 | `network`, `retry` | sensible | Timeouts and backoff |
-| `authProvider` | none | Supplies the host's access token |
+| `authProvider` | none | Android and iOS: supplies a token per request and can refresh on `401`. Wins over `authToken` |
 | `customBackend` | none | Replaces the REST backend entirely |
 | `collectDeviceInfo` | `true` | Send model, OS, locale, timezone |
 | `deduplicationCacheSize` | 200 | Bounded by design |
@@ -149,8 +154,11 @@ listener that attaches.
 
 ## Extension points
 
-**`AuthProvider`** supplies the host's access token. `getAccessToken()` per request;
-`refreshAccessToken()` once on a 401.
+**`AuthProvider`** (Android and iOS) supplies the host's access token. `getAccessToken()` per
+request; `refreshAccessToken()` once on a 401. Use it for tokens that expire. For a fixed token,
+`PushBackendConfig.authToken` is simpler; when both are set, the provider wins and the static
+token is the fallback. Flutter has no `AuthProvider`: call `initialize` again with a new
+`authToken` and the SDK reconfigures in place.
 
 **`PushBackend`** replaces the wire protocol entirely, without touching the notification engine.
 Implement it and pass it as `customBackend` for a bespoke transport, a gateway SDK, or a fake in

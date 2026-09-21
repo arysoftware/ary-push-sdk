@@ -209,25 +209,49 @@ internal class OkHttpRestClient(
 
     // ------------------------------------------------------------------ request construction
 
+    /**
+     * Resolves a request path against the base URL.
+     *
+     * A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`. Anything
+     * else is relative to the versioned root, `{baseUrl}/{apiVersion}/`, which is what a
+     * host-supplied [RestClient] consumer written against earlier versions expects.
+     *
+     * `projectId` is appended to every request when configured: the push API scopes every call
+     * to a project, so it belongs here rather than being repeated at each call site.
+     */
     private fun buildUrl(path: String, query: Map<String, Any?>): HttpUrl? {
-        val base = "${backendConfig.normalizedBaseUrl}/${backendConfig.apiVersion}/" +
-            path.trimStart('/')
+        val base = if (path.startsWith("/")) {
+            backendConfig.normalizedBaseUrl + path
+        } else {
+            "${backendConfig.normalizedBaseUrl}/${backendConfig.apiVersion}/$path"
+        }
         val builder = base.toHttpUrlOrNull()?.newBuilder() ?: return null
+        backendConfig.projectId?.takeIf { it.isNotBlank() }?.let {
+            builder.setQueryParameter(QUERY_PROJECT_ID, it)
+        }
         query.forEach { (key, value) ->
             if (value != null) builder.addQueryParameter(key, value.toString())
         }
         return builder.build()
     }
 
-    private suspend fun authToken(): String? = try {
-        authProvider?.getAccessToken()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (t: Throwable) {
-        // A failing AuthProvider must degrade to an unauthenticated request, not to a crash
-        // inside whichever host coroutine happened to trigger synchronisation.
-        PushLogger.w(t) { "AuthProvider.getAccessToken() failed; sending request unauthenticated" }
-        null
+    /**
+     * The bearer token for a request: the [AuthProvider]'s when one is configured and answers,
+     * otherwise the static [PushBackendConfig.authToken].
+     */
+    private suspend fun authToken(): String? {
+        val provided = try {
+            authProvider?.getAccessToken()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            // A failing AuthProvider must degrade, not crash inside whichever host coroutine
+            // happened to trigger synchronisation.
+            PushLogger.w(t) { "AuthProvider.getAccessToken() failed; falling back to the static token" }
+            null
+        }
+        return provided?.takeIf { it.isNotBlank() }
+            ?: backendConfig.authToken?.takeIf { it.isNotBlank() }
     }
 
     private fun buildHeaders(
@@ -321,5 +345,6 @@ internal class OkHttpRestClient(
         const val JSON_MEDIA_TYPE = "application/json; charset=utf-8"
         const val PLATFORM = "android"
         const val MAX_LOGGED_ERROR_BODY = 512
+        const val QUERY_PROJECT_ID = "projectId"
     }
 }

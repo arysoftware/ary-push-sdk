@@ -45,10 +45,21 @@ public protocol PushBackend: AnyObject {
         enabled: Bool
     ) async -> ApiResult<Void>
 
-    /// Reads the segments the backend has computed for this installation.
+    /// Lists the segments defined for the project.
     ///
-    /// Read-only by design: the SDK reports tags and identity, the backend decides membership.
+    /// This is the project's segment catalogue, not this installation's membership: the push API
+    /// exposes no per-installation membership read. `installationId` is supplied for
+    /// implementations whose server does scope the list, and is otherwise unused.
     func getSegments(installationId: String) async -> ApiResult<[Segment]>
+
+    /// Adds this installation to a segment.
+    ///
+    /// `installation` is the full current record, because the push API takes the whole
+    /// installation payload rather than a reference to one it already holds.
+    func subscribeToSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void>
 
     /// Submits a batch of push-related events.
     func trackEvents(installationId: String, events: [PushEvent]) async -> ApiResult<Void>
@@ -59,4 +70,19 @@ public protocol PushBackend: AnyObject {
 
 public extension PushBackend {
     func close() {}
+
+    /// Default for a host-supplied backend written before this operation existed, so it still
+    /// compiles. Reports the operation as unsupported rather than pretending to succeed.
+    func subscribeToSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void> {
+        .failure(
+            ApiError(
+                statusCode: nil,
+                code: "unsupported",
+                message: "This PushBackend does not implement subscribeToSegment"
+            )
+        )
+    }
 }

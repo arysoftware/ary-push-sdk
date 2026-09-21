@@ -25,7 +25,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 // Omit `backend` entirely and everything below still works, with no server.
                 backend: PushBackendConfig(
                     baseURL: "https://push-api-dev.ary.com",
-                    applicationId: "sample_ios"
+                    applicationId: "sample_ios",
+                    projectId: "YOUR_PROJECT_ID",
+                    // In a real app, fetch this from your own login flow rather than hardcoding it.
+                    authToken: "YOUR_BEARER_TOKEN"
                 )
             )
         )

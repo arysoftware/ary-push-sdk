@@ -40,7 +40,7 @@ if (project.extensions.findByName('kotlin') == null) {
 }
 
 group = 'com.ary.push.flutter'
-version = '1.0.0'
+version = '1.1.0'
 
 // ---------------------------------------------------------------- where the SDK comes from
 
@@ -75,9 +75,9 @@ def localSdkProject = rootProject.findProject(':ary-push-sdk')
 // Pin it from android/gradle.properties when you want a fixed build, which is what a production
 // application should do. Any of these works — a tag, a commit, or another repository:
 //
-//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.0.0
-//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:9b152ce
-//     arySdkCoordinate=com.ary:ary-push:1.0.0
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.1.0
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:<commit-hash>
+//     arySdkCoordinate=com.ary:ary-push:1.1.0
 def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?: 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT'
 
 repositories {

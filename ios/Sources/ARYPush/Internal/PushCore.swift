@@ -268,7 +268,11 @@ extension PushCore {
             }
         )
         restClient = client
-        backend = RestPushBackend(client: client, config: backendConfig)
+        backend = RestPushBackend(
+            client: client,
+            config: backendConfig,
+            installationProvider: { [weak self] in self?.buildInstallation() }
+        )
     }
 
     /// Re-samples OS-owned state every time the application comes forward.
@@ -499,10 +503,32 @@ extension PushCore {
         }
     }
 
-    /// Reads segment membership from the backend.
+    /// Adds this installation to a segment, completing on the main actor exactly once.
     ///
-    /// Deliberately not cached: membership changes on the server whenever tags change, and a
-    /// stale cached list is worse than a fresh call the caller chose to make.
+    /// Deliberately not queued: this is an explicit request whose outcome the caller wants to
+    /// know, and a durable queue would have to report success before the server had agreed.
+    func subscribeToSegment(_ segmentId: String, completion: @escaping (Bool) -> Void) {
+        let installation = buildInstallation()
+        let currentBackend = backend
+        Task {
+            let result = await currentBackend.subscribeToSegment(
+                segmentId: segmentId,
+                installation: installation
+            )
+            let subscribed = result.isSuccess
+            if subscribed {
+                PushLogger.info("Subscribed to segment \(segmentId)")
+            } else {
+                PushLogger.warn("Could not subscribe to segment \(segmentId)")
+            }
+            await MainActor.run { completion(subscribed) }
+        }
+    }
+
+    /// Reads the project's segment list from the backend.
+    ///
+    /// Deliberately not cached: the list changes on the server, and a stale cached list is worse
+    /// than a fresh call the caller chose to make.
     func fetchSegments(completion: @escaping ([Segment]) -> Void) {
         let installationId = installationManager.installationId
         let currentBackend = backend

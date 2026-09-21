@@ -30,10 +30,14 @@ enum InfoPlistConfigReader {
 
         var backend: PushBackendConfig?
         if let baseURL = dictionary["BackendBaseURL"] as? String, !baseURL.isEmpty {
+            // ProjectId is read here; the bearer token deliberately is not. Info.plist ships inside
+            // the IPA as plaintext, so a token placed there is readable by anyone who unzips the
+            // app. Pass authToken to ARYPush.initialize(_:) at runtime instead.
             backend = PushBackendConfig(
                 baseURL: baseURL,
                 applicationId: dictionary["ApplicationId"] as? String,
-                apiVersion: dictionary["BackendApiVersion"] as? String ?? "v1"
+                apiVersion: dictionary["BackendApiVersion"] as? String ?? "v1",
+                projectId: (dictionary["ProjectId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             )
         }
 

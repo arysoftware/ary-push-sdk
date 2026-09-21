@@ -71,12 +71,32 @@ public interface PushBackend {
     ): ApiResult<Unit>
 
     /**
-     * Reads the segments the backend has computed for this installation.
+     * Lists the segments defined for the project.
      *
-     * Read-only by design: the SDK reports tags and identity, the backend decides membership.
-     * See [com.ary.push.model.Segment].
+     * This is the project's segment catalogue, not this installation's membership: the push API
+     * exposes no per-installation membership read. [installationId] is supplied for
+     * implementations whose server does scope the list, and is otherwise unused.
      */
     public suspend fun getSegments(installationId: String): ApiResult<List<Segment>>
+
+    /**
+     * Adds this installation to a segment.
+     *
+     * [installation] is the full current record, because the push API takes the whole
+     * installation payload rather than a reference to one it already holds.
+     *
+     * Has a default so that a host-supplied backend written before this operation existed still
+     * compiles; that default reports the operation as unsupported rather than pretending to
+     * succeed.
+     */
+    public suspend fun subscribeToSegment(
+        segmentId: String,
+        installation: Installation
+    ): ApiResult<Unit> = ApiResult.Error(
+        statusCode = null,
+        code = "unsupported",
+        message = "This PushBackend does not implement subscribeToSegment"
+    )
 
     /** Submits a batch of push-related events. */
     public suspend fun trackEvents(

@@ -8,11 +8,11 @@ import com.google.firebase.messaging.FirebaseMessaging
  * Topic subscriptions.
  *
  * Topics are a transport feature: FCM fans a message out to everyone subscribed, with no backend
- * involvement. The SDK still records the subscription set locally and reports it, so that the
- * push backend can show which devices are on which topic without querying Google.
+ * involvement. The SDK records the subscription set locally; the push API has no topics endpoint,
+ * so it is not sent to the server.
  *
- * Topics are not segments. A topic is something a device opts into; a segment is something the
- * backend computes from tags. See docs/BACKEND.md.
+ * Topics are not segments. A topic is an FCM delivery channel; a segment is a server-side group a
+ * device is added to through `subscribeToSegment`. See docs/ARYPush-Technical-Specification.md.
  */
 internal class TopicManager(
     private val storage: StorageManager,

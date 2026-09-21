@@ -7,6 +7,7 @@ import com.ary.push.model.PushEvent
 import com.ary.push.model.PushProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -18,7 +19,8 @@ class RestPushBackendTest {
 
     private val config = PushBackendConfig(
         baseUrl = "https://push-api.ary.com",
-        applicationId = "wallet_android"
+        applicationId = "wallet_android",
+        projectId = "proj-42"
     )
 
     private val installation = Installation(
@@ -38,34 +40,59 @@ class RestPushBackendTest {
         notificationsEnabled = true
     )
 
+    /** What the backend reads as the live record; replaced by tests that need a variant. */
+    private var current: Installation = installation
+
     @Before
     fun setUp() {
         client = FakeRestClient()
-        backend = RestPushBackend(client, config)
+        current = installation
+        backend = RestPushBackend(client, config) { current }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun FakeRestClient.Call.map(): Map<String, Any?> = body as Map<String, Any?>
+
+    // ------------------------------------------------------------------ 1. register
+
     @Test
-    fun `registration posts the documented body to the versioned collection`() = runTest {
+    fun `registration posts the full installation payload`() = runTest {
         backend.registerInstallation(installation)
 
         val call = client.only()
         assertEquals("POST", call.method)
-        assertEquals("installations", call.path)
+        assertEquals("/api/notifications/devices/register", call.path)
 
-        @Suppress("UNCHECKED_CAST")
-        val body = call.body as Map<String, Any?>
-        assertEquals("install-1", body["installationId"])
-        assertEquals("wallet_android", body["applicationId"])
+        val body = call.map()
+        assertEquals("token-1", body["token"])
         assertEquals("android", body["platform"])
+        assertEquals("wallet_android", body["applicationId"])
+        assertEquals("install-1", body["installationId"])
         assertEquals("fcm", body["provider"])
-        assertEquals("token-1", body["pushToken"])
-        assertEquals("USER_123", body["userId"])
+        assertEquals("5.2.0", body["appVersion"])
+        assertEquals("520", body["appBuild"])
         assertEquals("1.0.0", body["sdkVersion"])
         assertEquals(true, body["notificationsEnabled"])
 
         @Suppress("UNCHECKED_CAST")
         val device = body["device"] as Map<String, Any?>
+        assertEquals("14", device["osVersion"])
+        assertEquals("Google Pixel 8", device["deviceModel"])
+        assertEquals("en-PK", device["locale"])
         assertEquals("Asia/Karachi", device["timezone"])
+    }
+
+    @Test
+    fun `registration sends exactly the documented fields`() = runTest {
+        backend.registerInstallation(installation)
+
+        assertEquals(
+            setOf(
+                "token", "platform", "applicationId", "installationId", "provider",
+                "appVersion", "appBuild", "sdkVersion", "notificationsEnabled", "device"
+            ),
+            client.only().map().keys
+        )
     }
 
     @Test
@@ -74,103 +101,110 @@ class RestPushBackendTest {
             installation.copy(osVersion = null, deviceModel = null, locale = null, timezone = null)
         )
 
-        @Suppress("UNCHECKED_CAST")
-        val body = client.only().body as Map<String, Any?>
-        assertTrue("device must be absent, not empty", !body.containsKey("device"))
+        assertFalse("device must be absent, not empty", client.only().map().containsKey("device"))
     }
 
     @Test
-    fun `token updates PUT to the installation token resource`() = runTest {
+    fun `the configured applicationId stands in when the record has none`() = runTest {
+        backend.registerInstallation(installation.copy(applicationId = null))
+
+        assertEquals("wallet_android", client.only().map()["applicationId"])
+    }
+
+    // ------------------------------------------------------------------ 2. token update
+
+    @Test
+    fun `a token update PUTs the new token with the live device state`() = runTest {
+        current = installation.copy(notificationsEnabled = false, appVersion = "5.3.0")
+
         backend.updateToken("install-1", "token-2", PushProvider.FCM)
 
         val call = client.only()
         assertEquals("PUT", call.method)
-        assertEquals("installations/install-1/token", call.path)
-        assertEquals(mapOf("token" to "token-2", "provider" to "fcm"), call.body)
+        assertEquals("/api/notifications/devices/update", call.path)
+        assertEquals(
+            mapOf(
+                "installationId" to "install-1",
+                "newToken" to "token-2",
+                "platform" to "android",
+                "notificationsEnabled" to false,
+                "appVersion" to "5.3.0"
+            ),
+            call.map()
+        )
+    }
+
+    // ------------------------------------------------------------------ 3. toggle
+
+    @Test
+    fun `a permission change PUTs the toggle keyed by push token`() = runTest {
+        backend.updateNotificationPermission("install-1", enabled = false)
+
+        val call = client.only()
+        assertEquals("PUT", call.method)
+        assertEquals("/api/notifications/devices/toggle", call.path)
+        assertEquals(mapOf("token" to "token-1", "notificationsEnabled" to false), call.map())
     }
 
     @Test
-    fun `identify posts the user association`() = runTest {
-        backend.identify("install-1", "USER_9")
+    fun `a permission change before any token exists makes no request`() = runTest {
+        current = installation.copy(pushToken = null)
+
+        val result = backend.updateNotificationPermission("install-1", enabled = true)
+
+        assertTrue(result.isSuccess)
+        assertTrue(client.calls.isEmpty())
+    }
+
+    // ------------------------------------------------------------------ 4. segment subscriber
+
+    @Test
+    fun `subscribing to a segment posts the full installation payload`() = runTest {
+        backend.subscribeToSegment("seg_premium", installation)
 
         val call = client.only()
         assertEquals("POST", call.method)
-        assertEquals("installations/install-1/identify", call.path)
-        assertEquals(mapOf("userId" to "USER_9"), call.body)
+        assertEquals("/api/segments/seg_premium/subscribers", call.path)
+        assertEquals("install-1", call.map()["installationId"])
+        assertEquals("token-1", call.map()["token"])
     }
 
     @Test
-    fun `logout deletes only the user association`() = runTest {
-        backend.logout("install-1")
+    fun `a segment id is percent-encoded as a path segment`() = runTest {
+        backend.subscribeToSegment("premium users/pk", installation)
+
+        assertEquals("/api/segments/premium%20users%2Fpk/subscribers", client.only().path)
+    }
+
+    // ------------------------------------------------------------------ 5. segment list
+
+    @Test
+    fun `the segment list is read from the project collection`() = runTest {
+        backend.getSegments("install-1")
 
         val call = client.only()
-        assertEquals("DELETE", call.method)
-        // Not /installations/install-1: the device registration and token must survive.
-        assertEquals("installations/install-1/user", call.path)
+        assertEquals("GET", call.method)
+        assertEquals("/api/segments/list", call.path)
     }
 
-    @Test
-    fun `tags are merged with PATCH`() = runTest {
-        backend.updateTags("install-1", mapOf("subscription" to "premium"))
-
-        val call = client.only()
-        assertEquals("PATCH", call.method)
-        assertEquals("installations/install-1/tags", call.path)
-        assertEquals(mapOf("tags" to mapOf("subscription" to "premium")), call.body)
-    }
+    // ------------------------------------------------------------------ no endpoint
 
     @Test
-    fun `removing named tags sends them as a query parameter`() = runTest {
-        backend.removeTags("install-1", setOf("a", "b"), all = false)
-
-        val call = client.only()
-        assertEquals("DELETE", call.method)
-        assertEquals("installations/install-1/tags", call.path)
-        assertEquals("a,b", call.query["keys"])
-    }
-
-    @Test
-    fun `removing all tags sends the all flag`() = runTest {
-        backend.removeTags("install-1", emptySet(), all = true)
-
-        assertEquals(true, client.only().query["all"])
-    }
-
-    @Test
-    fun `removing an empty key set makes no request at all`() = runTest {
-        val result = backend.removeTags("install-1", emptySet(), all = false)
-
-        assertTrue(result.isSuccess)
-        assertTrue(client.calls.isEmpty())
-    }
-
-    @Test
-    fun `an empty event batch makes no request`() = runTest {
-        val result = backend.trackEvents("install-1", emptyList())
-
-        assertTrue(result.isSuccess)
-        assertTrue(client.calls.isEmpty())
-    }
-
-    @Test
-    fun `events are batched into one request`() = runTest {
-        backend.trackEvents(
-            "install-1",
-            listOf(
-                PushEvent("notification_received", mapOf("notificationId" to "n1")),
-                PushEvent("notification_opened", mapOf("notificationId" to "n1"))
-            )
+    fun `operations with no endpoint succeed locally and send nothing`() = runTest {
+        val results = listOf(
+            backend.identify("install-1", "USER_9"),
+            backend.logout("install-1"),
+            backend.updateTags("install-1", mapOf("a" to "b")),
+            backend.removeTags("install-1", setOf("a"), all = false),
+            backend.updateTopics("install-1", setOf("news")),
+            backend.trackEvents("install-1", listOf(PushEvent("notification_opened")))
         )
 
-        val call = client.only()
-        assertEquals("POST", call.method)
-        assertEquals("events", call.path)
-
-        @Suppress("UNCHECKED_CAST")
-        val events = (call.body as Map<String, Any?>)["events"] as List<Map<String, Any?>>
-        assertEquals(2, events.size)
-        assertEquals("notification_received", events[0]["name"])
+        assertTrue("every one must settle as a success", results.all { it.isSuccess })
+        assertTrue("none may reach the network", client.calls.isEmpty())
     }
+
+    // ------------------------------------------------------------------ failures
 
     @Test
     fun `a backend failure is reported rather than thrown`() = runTest {

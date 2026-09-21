@@ -45,7 +45,8 @@ public struct Segment: Equatable {
 
     /// Parses one entry of the segments payload, returning nil for anything unusable.
     static func from(json: [String: Any]) -> Segment? {
-        guard let id = json["id"] as? String, !id.isEmpty else { return nil }
+        let candidate = (json["id"] as? String) ?? (json["segmentId"] as? String)
+        guard let id = candidate, !id.isEmpty else { return nil }
         let joinedAt = (json["joinedAt"] as? TimeInterval).map { millis in
             Date(timeIntervalSince1970: millis / 1000)
         }

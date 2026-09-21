@@ -50,6 +50,8 @@ ARYPush.initialize(
         backend = PushBackendConfig(
             baseUrl = BuildConfig.PUSH_API_URL,
             applicationId = "wallet_android",
+            projectId = "YOUR_PROJECT_ID",
+            authToken = "YOUR_BEARER_TOKEN",
         ),
     ),
 )

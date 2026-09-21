@@ -1,6 +1,6 @@
 # ARY Push SDK
 
-A **private**, ARY-owned push notification SDK for native Android, native iOS and Flutter
+An ARY-owned push notification SDK for native Android, native iOS and Flutter
 applications. It owns the entire client-side push lifecycle so that host applications only have to
 care about UI, navigation and business logic.
 
@@ -49,25 +49,57 @@ ary-push-sdk/
 
 ## Quick start
 
-On every platform, with no account, token or credential of any kind. `main-SNAPSHOT` tracks the
-tip of `main`, so nothing needs a version until you want to pin a release:
+The full specification — API reference, integration code for every platform and a Postman
+collection — is **[docs/ARYPush-Technical-Specification.md](docs/ARYPush-Technical-Specification.md)**.
 
-**Android** — one repository line in `settings.gradle.kts` plus the dependency:
+The host application supplies four values at initialization: `baseUrl`, `applicationId`,
+`projectId` and `authToken`. The SDK then talks to exactly five endpoints:
+
+| Operation | Request |
+| --- | --- |
+| Register Device | `POST /api/notifications/devices/register` |
+| Device Token Update | `PUT /api/notifications/devices/update` |
+| Subscribe / Unsubscribe | `PUT /api/notifications/devices/toggle` |
+| Add Segment Subscriber | `POST /api/segments/{segmentId}/subscribers` |
+| Segment List | `GET /api/segments/list` |
+
+Every request carries `Authorization: Bearer <authToken>` and `?projectId=<projectId>`.
+
+**Android** — `settings.gradle.kts` and `app/build.gradle.kts`:
 
 ```kotlin
 maven { url = uri("https://jitpack.io") }
-implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT")
+implementation("com.github.arysoftware:ary-push-sdk:main-SNAPSHOT") // or a release tag, e.g. v1.1.0
 ```
 
 ```kotlin
-ARYPush.initialize(this)
+ARYPush.initialize(
+    this,
+    ARYPushConfig(
+        backend = PushBackendConfig(
+            baseUrl = "https://push-api.ary.com",
+            applicationId = "wallet_android",
+            projectId = "YOUR_PROJECT_ID",
+            authToken = "YOUR_BEARER_TOKEN"
+        )
+    )
+)
 ```
 
-**iOS** — Xcode › Add Package Dependencies › `https://github.com/arysoftware/ary-push-sdk`.
-Nothing else.
+**iOS** — Xcode › Add Package Dependencies › `https://github.com/arysoftware/ary-push-sdk`,
+then enable the **Push Notifications** capability.
 
 ```swift
-ARYPush.initialize()
+ARYPush.initialize(
+    ARYPushConfig(
+        backend: PushBackendConfig(
+            baseURL: "https://push-api.ary.com",
+            applicationId: "wallet_ios",
+            projectId: "YOUR_PROJECT_ID",
+            authToken: "YOUR_BEARER_TOKEN"
+        )
+    )
+)
 ```
 
 **Flutter** — `pubspec.yaml`, and nothing else:
@@ -81,33 +113,57 @@ dependencies:
 ```
 
 ```dart
-await ARYPush.initialize();
+await ARYPush.initialize(
+  const ARYPushConfig(
+    backend: PushBackendConfig(
+      baseUrl: 'https://push-api.ary.com',
+      applicationId: 'wallet_flutter',
+      projectId: 'YOUR_PROJECT_ID',
+      authToken: 'YOUR_BEARER_TOKEN',
+    ),
+  ),
+);
 ```
 
-The plugin declares the Maven repository and the SDK coordinate for you, so no Gradle or Podfile
-edits are needed. The repository is public and JitPack builds it on demand, so that really is the
-whole Flutter integration.
-
-Complete steps: [docs/INTEGRATION.md](docs/INTEGRATION.md).
+No account or token is needed to *download* the SDK on any platform: the repository is public.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [QUICK_START.md](docs/QUICK_START.md) | Add the SDK to an existing app in under 5 minutes |
-| [INTEGRATION.md](docs/INTEGRATION.md) | Complete step-by-step integration as a local module, on all three platforms |
-| [ANDROID.md](docs/ANDROID.md) | Android integration, manifest, channels, permissions |
-| [IOS.md](docs/IOS.md) | iOS integration, APNs, delegate forwarding |
-| [FLUTTER.md](docs/FLUTTER.md) | Flutter plugin, event queue, engine lifecycle |
-| [FIREBASE.md](docs/FIREBASE.md) | Coexistence with existing Firebase and FCM integrations |
+| [ARYPush-Technical-Specification.md](docs/ARYPush-Technical-Specification.md) | **Start here.** Configuration, the 5 endpoints, integration code for all 3 platforms, Postman collection |
+| [ANDROID.md](docs/ANDROID.md) | Android specifics: manifest, channels, permissions |
+| [IOS.md](docs/IOS.md) | iOS specifics: APNs, capabilities, delegate forwarding, tokens |
+| [FLUTTER.md](docs/FLUTTER.md) | Flutter plugin, event streams, platform prerequisites |
+| [FIREBASE.md](docs/FIREBASE.md) | Coexistence with an existing Firebase Messaging integration |
 | [NOTIFICATION_LIFECYCLE.md](docs/NOTIFICATION_LIFECYCLE.md) | Foreground, background and terminated behaviour |
-| [REST_API.md](docs/REST_API.md) | Versioned backend contract, every endpoint |
-| [BACKEND.md](docs/BACKEND.md) | Backend data model, segments, campaigns |
+| [API.md](docs/API.md) | Public SDK API reference for all three platforms |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internal architecture and component responsibilities |
-| [API.md](docs/API.md) | Public API reference for all three platforms |
 | [SECURITY.md](docs/SECURITY.md) | Credential rules, TLS, logging, privacy |
 | [MIGRATION.md](docs/MIGRATION.md) | Migrating from firebase_messaging or custom notification code |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Symptom, cause and fix |
+| [postman/ARYPush.postman_collection.json](postman/ARYPush.postman_collection.json) | The 5 requests, ready to import into Postman |
+
+## Working on this repository
+
+**Releasing** is a git tag. JitPack builds the Android artifact on first request, Swift Package
+Manager and `pub` read the tag directly, and nothing is uploaded anywhere:
+
+```bash
+git tag -a v1.1.0 -m "ARY Push SDK v1.1.0" && git push origin v1.1.0
+```
+
+**Running the examples before a release exists.** `scripts/dev_offline_examples.sh` builds the
+Android SDK into `android/build/local-maven` and points the Flutter examples at the working tree
+through a git-ignored `pubspec_overrides.yaml`; `--undo` reverses it.
+
+**Open `android/` in Android Studio**, never a sample folder inside it. The samples are modules of
+that build, and opening one directly fails sync with
+`Task 'prepareKotlinBuildScriptModel' not found`.
+
+**Never commit a credential.** `.github/workflows/security.yml` fails the build on any committed
+access token or credential-bearing URL.
+
 
 ## Identifiers
 

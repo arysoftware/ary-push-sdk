@@ -236,14 +236,11 @@ public object ARYPush {
     // ------------------------------------------------------------------ segments
 
     /**
-     * Reads the segments this installation currently belongs to.
+     * Lists the segments defined for the project.
      *
-     * Segments are groups the backend computes from the tags, user and device attributes the SDK
-     * reports. "Premium Pakistan Users" is `subscription == premium AND country == PK`, defined
-     * once on the server rather than compiled into every app, because that rule changes far more
-     * often than an app ships.
-     *
-     * Read-only by design: to change which segments a device lands in, change its tags.
+     * Backed by `GET /api/segments/list`. This is the project's segment catalogue — every segment
+     * a device could be added to — not the segments this installation belongs to: the push API
+     * has no per-installation membership read.
      *
      * [callback] runs on the main thread exactly once. An unreachable backend, or no backend at
      * all, yields an empty list rather than an error.
@@ -265,7 +262,45 @@ public object ARYPush {
         }
     }
 
-    /** True when this installation is in the named segment. Matches on name or id. */
+    /**
+     * Adds this installation to a segment.
+     *
+     * Backed by `POST /api/segments/{segmentId}/subscribers`, sending the full installation
+     * record. Take [segmentId] from [getSegments].
+     *
+     * [callback] runs on the main thread exactly once with whether the server accepted it. This
+     * is a direct request rather than a queued one, so it fails while offline — the caller learns
+     * the real outcome instead of an optimistic one.
+     */
+    @JvmStatic
+    public fun subscribeToSegment(segmentId: String, callback: (Boolean) -> Unit) {
+        if (segmentId.isBlank()) {
+            PushLogger.w { "subscribeToSegment ignored: segmentId is blank" }
+            callback(false)
+            return
+        }
+        val core = requireCore("subscribeToSegment") ?: run { callback(false); return }
+        core.subscribeToSegmentAsync(segmentId, callback)
+    }
+
+    /** Suspending form of [subscribeToSegment]. */
+    @JvmStatic
+    public suspend fun subscribeToSegment(segmentId: String): Boolean =
+        suspendCancellableCoroutine { continuation ->
+            subscribeToSegment(segmentId) { subscribed -> continuation.resume(subscribed) }
+        }
+
+    /**
+     * True when a segment with this name or id exists in the project.
+     *
+     * Retained for compatibility, but it no longer answers the question its name asks: the push
+     * API exposes no per-installation membership, so this can only see the project's catalogue.
+     */
+    @Deprecated(
+        message = "The push API has no membership read. This now reports whether the segment " +
+            "exists in the project, not whether this installation is in it.",
+        replaceWith = ReplaceWith("getSegments()")
+    )
     @JvmStatic
     public suspend fun isInSegment(name: String): Boolean =
         getSegments().any { it.name.equals(name, ignoreCase = true) || it.id == name }

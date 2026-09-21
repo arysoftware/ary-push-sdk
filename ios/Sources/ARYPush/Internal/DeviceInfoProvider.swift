@@ -11,7 +11,7 @@ import UIKit
 final class DeviceInfoProvider {
 
     /// The SDK version, kept in one place so it can never drift from the released tag.
-    static let sdkVersion = "1.0.0"
+    static let sdkVersion = "1.1.0"
 
     private let bundle: Bundle
 

@@ -107,18 +107,33 @@ public struct PushBackendConfig {
     public let defaultHeaders: [String: String]
     public let headerNames: HeaderNames
 
+    /// Project the installation belongs to. Sent as the `projectId` query parameter on every
+    /// request, because the push API scopes every call to a project.
+    public let projectId: String?
+
+    /// Bearer token sent as `Authorization: Bearer <authToken>` on every request.
+    ///
+    /// A static token supplied by the host application. When an ``AuthProvider`` is also
+    /// configured it wins, because it can refresh an expired token and this cannot. Never
+    /// logged, and masked in ``description`` and ``customMirror``.
+    public let authToken: String?
+
     public init(
         baseURL: String,
         applicationId: String? = nil,
         apiVersion: String = "v1",
         defaultHeaders: [String: String] = [:],
-        headerNames: HeaderNames = HeaderNames()
+        headerNames: HeaderNames = HeaderNames(),
+        projectId: String? = nil,
+        authToken: String? = nil
     ) {
         self.baseURL = baseURL
         self.applicationId = applicationId
         self.apiVersion = apiVersion
         self.defaultHeaders = defaultHeaders
         self.headerNames = headerNames
+        self.projectId = projectId
+        self.authToken = authToken
     }
 
     var normalizedBaseURL: String {
@@ -126,6 +141,36 @@ public struct PushBackendConfig {
     }
 
     var isPlaintext: Bool { baseURL.hasPrefix("http://") }
+}
+
+// A configuration printed while debugging -- `print(config)`, or `dump(config)`, which reads
+// through reflection rather than `description` -- must not write the bearer token to the console.
+extension PushBackendConfig: CustomStringConvertible, CustomReflectable {
+
+    private var maskedAuthToken: String {
+        guard let authToken, !authToken.isEmpty else { return "nil" }
+        return "***"
+    }
+
+    public var description: String {
+        "PushBackendConfig(baseURL: \(baseURL), applicationId: \(applicationId ?? "nil"), "
+            + "projectId: \(projectId ?? "nil"), apiVersion: \(apiVersion), "
+            + "authToken: \(maskedAuthToken))"
+    }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "baseURL": baseURL,
+                "applicationId": applicationId as Any,
+                "projectId": projectId as Any,
+                "apiVersion": apiVersion,
+                "authToken": maskedAuthToken
+            ],
+            displayStyle: .struct
+        )
+    }
 }
 
 /// Optional configuration for ``ARYPush/initialize(_:)``.

@@ -288,22 +288,42 @@ private extension URLSessionRestClient {
     static var platform: String { "ios" }
     static var maxLoggedErrorBody: Int { 512 }
 
+    /// Resolves a request path against the base URL.
+    ///
+    /// A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`. Anything
+    /// else is relative to the versioned root, `{baseURL}/{apiVersion}/`. Identical to Android.
+    ///
+    /// `projectId` is appended to every request when configured: the push API scopes every call
+    /// to a project, so it belongs here rather than being repeated at each call site.
     func buildURL(path: String, query: [String: Any?]) -> URL? {
-        let trimmedPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        let absolute = "\(backendConfig.normalizedBaseURL)/\(backendConfig.apiVersion)/\(trimmedPath)"
+        let absolute = path.hasPrefix("/")
+            ? backendConfig.normalizedBaseURL + path
+            : "\(backendConfig.normalizedBaseURL)/\(backendConfig.apiVersion)/\(path)"
         guard var components = URLComponents(string: absolute) else { return nil }
 
-        let items = query.compactMap { key, value -> URLQueryItem? in
-            guard let value else { return nil }
-            return URLQueryItem(name: key, value: String(describing: value))
+        var items: [URLQueryItem] = []
+        if let projectId = backendConfig.projectId, !projectId.isEmpty {
+            items.append(URLQueryItem(name: "projectId", value: projectId))
         }
+        items += query
+            .compactMap { key, value -> URLQueryItem? in
+                guard let value else { return nil }
+                return URLQueryItem(name: key, value: String(describing: value))
+            }
+            // Dictionary order is unstable; a stable URL keeps logs and tests readable.
+            .sorted { $0.name < $1.name }
         if !items.isEmpty { components.queryItems = items }
         return components.url
     }
 
+    /// The bearer token for a request: the ``AuthProvider``'s when one is configured and
+    /// answers, otherwise the static ``PushBackendConfig/authToken``.
     func currentAccessToken() async -> String? {
-        guard let authProvider else { return nil }
-        return await authProvider.accessToken()
+        if let authProvider, let provided = await authProvider.accessToken(), !provided.isEmpty {
+            return provided
+        }
+        guard let authToken = backendConfig.authToken, !authToken.isEmpty else { return nil }
+        return authToken
     }
 
     func buildHeaders(

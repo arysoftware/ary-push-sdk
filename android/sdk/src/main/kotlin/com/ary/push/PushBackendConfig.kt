@@ -28,7 +28,22 @@ public data class PushBackendConfig @JvmOverloads constructor(
     public val defaultHeaders: Map<String, String> = emptyMap(),
 
     /** Header names, overridable for gateways that expect a different convention. */
-    public val headerNames: HeaderNames = HeaderNames()
+    public val headerNames: HeaderNames = HeaderNames(),
+
+    /**
+     * Project the installation belongs to. Sent as the `projectId` query parameter on every
+     * request, because the push API scopes every call to a project.
+     */
+    public val projectId: String? = null,
+
+    /**
+     * Bearer token sent as `Authorization: Bearer <authToken>` on every request.
+     *
+     * A static token, supplied by the host application at initialization. When an
+     * [com.ary.push.api.AuthProvider] is also configured it wins, because it can refresh an
+     * expired token and this cannot. Never logged, and masked in [toString].
+     */
+    public val authToken: String? = null
 ) {
     init {
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
@@ -37,6 +52,18 @@ public data class PushBackendConfig @JvmOverloads constructor(
         }
         require(apiVersion.isNotBlank()) { "apiVersion must not be blank" }
     }
+
+    /**
+     * Masks [authToken].
+     *
+     * A data class prints every property, so without this a host that logs its configuration --
+     * a very ordinary thing to do while debugging -- would write the bearer token to Logcat.
+     */
+    override fun toString(): String =
+        "PushBackendConfig(baseUrl=$baseUrl, applicationId=$applicationId, " +
+            "projectId=$projectId, apiVersion=$apiVersion, " +
+            "authToken=${if (authToken.isNullOrEmpty()) "null" else "***"}, " +
+            "defaultHeaders=${defaultHeaders.keys}, headerNames=$headerNames)"
 
     /** Normalised base URL without a trailing slash. */
     internal val normalizedBaseUrl: String get() = baseUrl.trimEnd('/')

@@ -194,8 +194,17 @@ public class ARYPushPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Stre
                 }
 
             "getSegments" ->
-                // Answered asynchronously: membership is read from the backend.
+                // Answered asynchronously: the project's segment list is read from the backend.
                 ARYPush.getSegments { segments -> result.success(segments.map { it.toMap() }) }
+
+            "subscribeToSegment" -> {
+                val segmentId = call.argument<String>("segmentId")
+                if (segmentId.isNullOrBlank()) {
+                    result.error("invalid_argument", "segmentId must not be blank", null)
+                } else {
+                    ARYPush.subscribeToSegment(segmentId) { ok -> result.success(ok) }
+                }
+            }
 
             "getSubscribedTopics" ->
                 result.success(ARYPush.getSubscribedTopics().toList())

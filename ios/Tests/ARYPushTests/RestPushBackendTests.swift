@@ -73,102 +73,173 @@ final class RestPushBackendTests: XCTestCase {
     private var client: FakeRestClient!
     private var backend: RestPushBackend!
 
+    /// What the backend reads as the live record; replaced by tests that need a variant.
+    private var current: Installation?
+
     private let config = PushBackendConfig(
         baseURL: "https://push-api.ary.com",
-        applicationId: "wallet_ios"
+        applicationId: "wallet_ios",
+        projectId: "proj-42"
     )
 
     override func setUp() {
         super.setUp()
         client = FakeRestClient()
-        backend = RestPushBackend(client: client, config: config)
+        current = makeTestInstallation()
+        backend = RestPushBackend(
+            client: client,
+            config: config,
+            installationProvider: { [unowned self] in self.current }
+        )
     }
 
-    func testRegistrationPostsTheDocumentedBody() async {
+    // MARK: 1. Register
+
+    func testRegistrationPostsTheFullInstallationPayload() async {
         _ = await backend.registerInstallation(makeTestInstallation(userId: "USER_123"))
 
         let call = client.only
         XCTAssertEqual(call.method, "POST")
         // Identical to the Android client: one backend contract, two clients.
-        XCTAssertEqual(call.path, "installations")
-        XCTAssertEqual(call.body?["installationId"] as? String, "install-1")
-        XCTAssertEqual(call.body?["applicationId"] as? String, "wallet_ios")
+        XCTAssertEqual(call.path, "/api/notifications/devices/register")
+        XCTAssertEqual(call.body?["token"] as? String, "token-1")
         XCTAssertEqual(call.body?["platform"] as? String, "ios")
+        XCTAssertEqual(call.body?["applicationId"] as? String, "wallet_ios")
+        XCTAssertEqual(call.body?["installationId"] as? String, "install-1")
         XCTAssertEqual(call.body?["provider"] as? String, "apns")
-        XCTAssertEqual(call.body?["pushToken"] as? String, "token-1")
-        XCTAssertEqual(call.body?["userId"] as? String, "USER_123")
+        XCTAssertEqual(call.body?["appVersion"] as? String, "5.2.0")
+        XCTAssertEqual(call.body?["appBuild"] as? String, "520")
+        XCTAssertEqual(call.body?["sdkVersion"] as? String, "1.0.0")
+        XCTAssertEqual(call.body?["notificationsEnabled"] as? Bool, true)
 
         let device = call.body?["device"] as? [String: Any]
+        XCTAssertEqual(device?["osVersion"] as? String, "17.4")
         XCTAssertEqual(device?["timezone"] as? String, "Asia/Karachi")
     }
 
-    func testTokenUpdatesPutToTheTokenResource() async {
+    func testRegistrationSendsExactlyTheDocumentedFields() async {
+        _ = await backend.registerInstallation(makeTestInstallation(userId: "USER_123"))
+
+        XCTAssertEqual(
+            Set(client.only.body?.keys.map { $0 } ?? []),
+            [
+                "token", "platform", "applicationId", "installationId", "provider",
+                "appVersion", "appBuild", "sdkVersion", "notificationsEnabled", "device"
+            ]
+        )
+    }
+
+    // MARK: 2. Token update
+
+    func testATokenUpdatePutsTheNewTokenWithTheLiveDeviceState() async {
         _ = await backend.updateToken(
             installationId: "install-1",
             token: "token-2",
             provider: .fcm
         )
 
-        XCTAssertEqual(client.only.method, "PUT")
-        XCTAssertEqual(client.only.path, "installations/install-1/token")
-        XCTAssertEqual(client.only.body?["token"] as? String, "token-2")
-        XCTAssertEqual(client.only.body?["provider"] as? String, "fcm")
+        let call = client.only
+        XCTAssertEqual(call.method, "PUT")
+        XCTAssertEqual(call.path, "/api/notifications/devices/update")
+        XCTAssertEqual(call.body?["installationId"] as? String, "install-1")
+        XCTAssertEqual(call.body?["newToken"] as? String, "token-2")
+        XCTAssertEqual(call.body?["platform"] as? String, "ios")
+        XCTAssertEqual(call.body?["notificationsEnabled"] as? Bool, true)
+        XCTAssertEqual(call.body?["appVersion"] as? String, "5.2.0")
     }
 
-    func testLogoutDeletesOnlyTheUserAssociation() async {
-        _ = await backend.logout(installationId: "install-1")
+    // MARK: 3. Toggle
 
-        XCTAssertEqual(client.only.method, "DELETE")
-        // Not /installations/install-1: the device registration and token must survive.
-        XCTAssertEqual(client.only.path, "installations/install-1/user")
+    func testAPermissionChangePutsTheToggleKeyedByPushToken() async {
+        _ = await backend.updateNotificationPermission(installationId: "install-1", enabled: false)
+
+        let call = client.only
+        XCTAssertEqual(call.method, "PUT")
+        XCTAssertEqual(call.path, "/api/notifications/devices/toggle")
+        XCTAssertEqual(call.body?["token"] as? String, "token-1")
+        XCTAssertEqual(call.body?["notificationsEnabled"] as? Bool, false)
     }
 
-    func testTagsAreMergedWithPatch() async {
-        _ = await backend.updateTags(
+    func testAPermissionChangeBeforeAnyTokenExistsMakesNoRequest() async {
+        current = makeTestInstallation(token: nil)
+
+        let result = await backend.updateNotificationPermission(
             installationId: "install-1",
-            tags: ["subscription": "premium"]
+            enabled: true
         )
-
-        XCTAssertEqual(client.only.method, "PATCH")
-        XCTAssertEqual(client.only.path, "installations/install-1/tags")
-        XCTAssertEqual(
-            (client.only.body?["tags"] as? [String: String])?["subscription"],
-            "premium"
-        )
-    }
-
-    func testRemovingNamedTagsSendsThemAsAQueryParameter() async {
-        _ = await backend.removeTags(installationId: "install-1", keys: ["b", "a"], all: false)
-
-        XCTAssertEqual(client.only.method, "DELETE")
-        XCTAssertEqual(client.only.query["keys"] as? String, "a,b")
-    }
-
-    func testRemovingAnEmptyKeySetMakesNoRequest() async {
-        let result = await backend.removeTags(installationId: "install-1", keys: [], all: false)
 
         XCTAssertTrue(result.isSuccess)
         XCTAssertTrue(client.calls.isEmpty)
     }
 
-    func testAnEmptyEventBatchMakesNoRequest() async {
-        let result = await backend.trackEvents(installationId: "install-1", events: [])
+    // MARK: 4. Segment subscriber
 
-        XCTAssertTrue(result.isSuccess)
+    func testSubscribingToASegmentPostsTheFullInstallationPayload() async {
+        _ = await backend.subscribeToSegment(
+            segmentId: "seg_premium",
+            installation: makeTestInstallation()
+        )
+
+        let call = client.only
+        XCTAssertEqual(call.method, "POST")
+        XCTAssertEqual(call.path, "/api/segments/seg_premium/subscribers")
+        XCTAssertEqual(call.body?["installationId"] as? String, "install-1")
+        XCTAssertEqual(call.body?["token"] as? String, "token-1")
+    }
+
+    func testASegmentIdIsPercentEncodedAsAPathSegment() async {
+        _ = await backend.subscribeToSegment(
+            segmentId: "premium users/pk",
+            installation: makeTestInstallation()
+        )
+
+        XCTAssertEqual(client.only.path, "/api/segments/premium%20users%2Fpk/subscribers")
+    }
+
+    // MARK: 5. Segment list
+
+    func testTheSegmentListIsReadFromTheProjectCollection() async {
+        client.nextResult = [Segment]()
+
+        _ = await backend.getSegments(installationId: "install-1")
+
+        XCTAssertEqual(client.only.method, "GET")
+        XCTAssertEqual(client.only.path, "/api/segments/list")
+    }
+
+    // MARK: No endpoint
+
+    func testOperationsWithNoEndpointSucceedLocallyAndSendNothing() async {
+        var results: [ApiResult<Void>] = []
+        results.append(await backend.identify(installationId: "install-1", userId: "USER_9"))
+        results.append(await backend.logout(installationId: "install-1"))
+        results.append(await backend.updateTags(installationId: "install-1", tags: ["a": "b"]))
+        results.append(
+            await backend.removeTags(installationId: "install-1", keys: ["a"], all: false)
+        )
+        results.append(await backend.updateTopics(installationId: "install-1", topics: ["news"]))
+        results.append(
+            await backend.trackEvents(
+                installationId: "install-1",
+                events: [PushEvent(name: "notification_opened")]
+            )
+        )
+
+        XCTAssertTrue(results.allSatisfy { $0.isSuccess })
         XCTAssertTrue(client.calls.isEmpty)
     }
 
-    func testEventsAreBatchedIntoOneRequest() async {
-        _ = await backend.trackEvents(
-            installationId: "install-1",
-            events: [
-                PushEvent(name: "notification_received"),
-                PushEvent(name: "notification_opened")
-            ]
-        )
+    // MARK: Configuration
 
-        XCTAssertEqual(client.only.path, "events")
-        XCTAssertEqual((client.only.body?["events"] as? [[String: Any]])?.count, 2)
+    func testTheBackendConfigurationNeverPrintsItsBearerToken() {
+        let config = PushBackendConfig(baseURL: "https://push.example", authToken: "secret-value")
+
+        XCTAssertFalse(config.description.contains("secret-value"))
+        XCTAssertTrue(config.description.contains("authToken: ***"))
+
+        var dumped = ""
+        dump(config, to: &dumped)
+        XCTAssertFalse(dumped.contains("secret-value"))
     }
 
     func testClosingTheBackendClosesItsTransport() {

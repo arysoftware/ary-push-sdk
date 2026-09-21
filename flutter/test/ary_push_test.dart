@@ -94,6 +94,66 @@ void main() {
     });
   });
 
+  group('backend configuration', () {
+    test('projectId and authToken reach the native side', () async {
+      await ARYPush.initialize(
+        const ARYPushConfig(
+          backend: PushBackendConfig(
+            baseUrl: 'https://push-api.ary.com',
+            applicationId: 'wallet_flutter',
+            projectId: 'proj-42',
+            authToken: 'bearer-token',
+          ),
+        ),
+      );
+
+      final Map<Object?, Object?> backend = (callTo('initialize').arguments
+          as Map<Object?, Object?>)['backend']! as Map<Object?, Object?>;
+      expect(backend['baseUrl'], 'https://push-api.ary.com');
+      expect(backend['applicationId'], 'wallet_flutter');
+      expect(backend['projectId'], 'proj-42');
+      expect(backend['authToken'], 'bearer-token');
+    });
+
+    test('toString never prints the bearer token', () {
+      const PushBackendConfig config = PushBackendConfig(
+        baseUrl: 'https://push-api.ary.com',
+        authToken: 'secret-value',
+      );
+
+      expect(config.toString(), isNot(contains('secret-value')));
+      expect(config.toString(), contains('authToken: ***'));
+    });
+  });
+
+  group('segments', () {
+    test('subscribeToSegment forwards the segment id and reports the result',
+        () async {
+      responses['subscribeToSegment'] = true;
+
+      final bool subscribed = await ARYPush.subscribeToSegment('seg_premium');
+
+      expect(subscribed, isTrue);
+      expect(
+        callTo('subscribeToSegment').arguments,
+        <String, dynamic>{'segmentId': 'seg_premium'},
+      );
+    });
+
+    test('a null native answer is failure, not success', () async {
+      expect(await ARYPush.subscribeToSegment('seg_premium'), isFalse);
+    });
+
+    test('a blank segment id fails before reaching native code', () async {
+      await expectLater(
+        ARYPush.subscribeToSegment('  '),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(calls.where((MethodCall c) => c.method == 'subscribeToSegment'),
+          isEmpty);
+    });
+  });
+
   group('token', () {
     test('setFCMToken forwards the token', () async {
       await ARYPush.setFCMToken('fcm-registration-token');

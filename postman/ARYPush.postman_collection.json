@@ -1,0 +1,242 @@
+{
+  "info": {
+    "_postman_id": "6f2d8c1e-4b7a-4e1f-9a53-2c8e0b7d4a19",
+    "name": "ARYPush Notification Service",
+    "description": "The five endpoints the ARYPush SDK calls, exactly as the Android, iOS and Flutter clients send them.\n\nSet the collection variables before sending anything. Every request inherits `Authorization: Bearer {{bearer_token}}` from the collection and carries `projectId={{project_id}}` as a query parameter.\n\nThe `token` values in request bodies are placeholders: replace them with a real FCM registration token (Android) or APNs device token (iOS) to test delivery end to end.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://push-api-dev.ary.com",
+      "type": "string"
+    },
+    {
+      "key": "bearer_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "application_id",
+      "value": "wallet_android",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "installation_id",
+      "value": "8f14e45f-ea1e-4f7a-b2c1-5b2d7a1c9e33",
+      "type": "string"
+    },
+    {
+      "key": "segment_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Register Device",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"FCM_OR_APNS_DEVICE_TOKEN\",\n  \"platform\": \"android\",\n  \"applicationId\": \"{{application_id}}\",\n  \"installationId\": \"{{installation_id}}\",\n  \"provider\": \"fcm\",\n  \"appVersion\": \"5.2.0\",\n  \"appBuild\": \"520\",\n  \"sdkVersion\": \"1.1.0\",\n  \"notificationsEnabled\": true,\n  \"device\": {\n    \"osVersion\": \"14\",\n    \"deviceModel\": \"Google Pixel 8\",\n    \"locale\": \"en-PK\",\n    \"timezone\": \"Asia/Karachi\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/notifications/devices/register?projectId={{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "devices",
+            "register"
+          ],
+          "query": [
+            {
+              "key": "projectId",
+              "value": "{{project_id}}"
+            }
+          ]
+        },
+        "description": "Creates or refreshes the installation. Sent on first launch and again whenever any field changes, so it must be an idempotent upsert keyed on `installationId`.\n\nOn iOS, set `platform` to `ios` and `provider` to `apns` (or `fcm` when the app supplies an FCM token). `device` is omitted entirely when the host app disabled device-info collection."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Device Token Update",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"installationId\": \"{{installation_id}}\",\n  \"newToken\": \"NEW_FCM_OR_APNS_DEVICE_TOKEN\",\n  \"platform\": \"android\",\n  \"notificationsEnabled\": true,\n  \"appVersion\": \"5.2.0\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/notifications/devices/update?projectId={{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "devices",
+            "update"
+          ],
+          "query": [
+            {
+              "key": "projectId",
+              "value": "{{project_id}}"
+            }
+          ]
+        },
+        "description": "Replaces the push token for an installation. Sent on every token refresh, always after a Register that already carries the same new token."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Subscribe / Unsubscribe",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"FCM_OR_APNS_DEVICE_TOKEN\",\n  \"notificationsEnabled\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/notifications/devices/toggle?projectId={{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "devices",
+            "toggle"
+          ],
+          "query": [
+            {
+              "key": "projectId",
+              "value": "{{project_id}}"
+            }
+          ]
+        },
+        "description": "Records whether the OS currently permits notifications for the device, identified by its push token. Sent whenever the permission state changes, including when the user turns notifications off in system Settings. Never sent before the device has a token."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Add Segment Subscriber",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"FCM_OR_APNS_DEVICE_TOKEN\",\n  \"platform\": \"android\",\n  \"applicationId\": \"{{application_id}}\",\n  \"installationId\": \"{{installation_id}}\",\n  \"provider\": \"fcm\",\n  \"appVersion\": \"5.2.0\",\n  \"appBuild\": \"520\",\n  \"sdkVersion\": \"1.1.0\",\n  \"notificationsEnabled\": true,\n  \"device\": {\n    \"osVersion\": \"14\",\n    \"deviceModel\": \"Google Pixel 8\",\n    \"locale\": \"en-PK\",\n    \"timezone\": \"Asia/Karachi\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/segments/{{segment_id}}/subscribers?projectId={{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "segments",
+            "{{segment_id}}",
+            "subscribers"
+          ],
+          "query": [
+            {
+              "key": "projectId",
+              "value": "{{project_id}}"
+            }
+          ]
+        },
+        "description": "Adds the installation to a segment, sending the full installation payload. Sent only when the app calls subscribeToSegment(segmentId). Adding an installation that is already a subscriber should return 2xx: a 409 is treated by the SDK as a failure and reported to the app as `false`."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Segment List",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/segments/list?projectId={{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "segments",
+            "list"
+          ],
+          "query": [
+            {
+              "key": "projectId",
+              "value": "{{project_id}}"
+            }
+          ]
+        },
+        "description": "Lists the project's segments. Sent only when the app calls getSegments(); never cached. The SDK accepts a bare array, or an object wrapping one under `segments` or `data`. Each entry needs `id` (or `segmentId`); `name`, `description` and `joinedAt` (epoch ms) are optional."
+      },
+      "response": []
+    }
+  ]
+}

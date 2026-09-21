@@ -54,8 +54,20 @@ public object NoopPushBackend : PushBackend {
     ): ApiResult<Unit> = ok
 
     override suspend fun getSegments(installationId: String): ApiResult<List<Segment>> =
-        // No server, so nothing computes membership. An empty list is the truthful answer.
+        // No server, so no segments exist. An empty list is the truthful answer.
         ApiResult.Success(emptyList(), statusCode = 200)
+
+    override suspend fun subscribeToSegment(
+        segmentId: String,
+        installation: Installation
+    ): ApiResult<Unit> =
+        // Unlike a tag, a segment subscription has no local meaning at all: it exists only on a
+        // server. Reporting success here would tell the host it had subscribed when nothing did.
+        ApiResult.Error(
+            statusCode = null,
+            code = "no_backend",
+            message = "No backend is configured, so there is nothing to subscribe on"
+        )
 
     override suspend fun trackEvents(
         installationId: String,

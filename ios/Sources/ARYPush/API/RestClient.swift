@@ -6,7 +6,8 @@ import Foundation
 /// retries, and nothing about installations, tokens or tags. Push logic lives in ``PushBackend``
 /// implementations, which keeps it testable without a socket.
 ///
-/// Paths are relative to the configured base URL and API version, e.g. `installations`.
+/// A path starting with `/` is absolute from the base URL, e.g. `/api/segments/list`; anything
+/// else is relative to `{baseURL}/{apiVersion}/`. `projectId` is added to every request.
 public protocol RestClient: AnyObject {
 
     func get<T>(

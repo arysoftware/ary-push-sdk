@@ -15,7 +15,7 @@ A healthy launch looks like this:
 [ARYPush] Installation ID loaded
 [ARYPush] Permission status: GRANTED
 [ARYPush] Push token received: dGhp***4n(163) (fcm)
-[ARYPush] POST /v1/installations -> 201
+[ARYPush] POST /api/notifications/devices/register -> 201
 [ARYPush] Synced REGISTER_INSTALLATION
 ```
 
@@ -137,9 +137,9 @@ Working as designed. The queue is durable and drains when connectivity returns.
 
 **`Dropping X: permanent failure HTTP 422`**
 
-The backend rejected the request in a way that retrying cannot fix. Check the request against
-[REST_API.md](REST_API.md). Common causes: an unknown `applicationId`, or a token the provider
-has already invalidated.
+The backend rejected the request in a way that retrying cannot fix. Check the request against the
+[technical specification](ARYPush-Technical-Specification.md). Common causes: an unknown
+`applicationId` or `projectId`, or a push token the provider has already invalidated.
 
 **`Dropping X after N attempt(s)`**
 
@@ -148,15 +148,39 @@ re-registers on the next launch because the registration hash no longer matches.
 
 **Requests are 401 and never succeed**
 
-`AuthProvider.getAccessToken()` is returning an expired token and `refreshAccessToken()` is
-returning false. The SDK retries once after a successful refresh and never loops.
+With a static `authToken`: the token is wrong or expired, and a `401` is permanent — there is
+nothing to refresh it with. Call `initialize` again with a valid token.
+
+With an `AuthProvider`: `getAccessToken()` is returning an expired token and
+`refreshAccessToken()` is returning false. The SDK retries once after a successful refresh and
+never loops.
+
+**Every request is rejected, but the token is valid**
+
+Check `projectId`. It is sent as a query parameter on every request, and an unset or wrong value
+is usually answered with `403`, `404` or `422` — all permanent, so nothing retries.
+
+**`subscribeToSegment` returns false**
+
+In order of likelihood: the device is offline (the call is direct, not queued); no `backend` is
+configured; the segment id is unknown (`404`); or the backend answers `409` for a device that is
+already a subscriber, which the SDK reports as a failure — the backend should answer `2xx`.
+
+## iOS devices never receive topic messages
+
+Expected with this API. APNs has no topics, so iOS topic delivery depends on the backend fanning
+out to subscribers — and there is no endpoint that tells the backend about topic subscriptions.
+`subscribeToTopic` is recorded on the device only. Target iOS devices with segments instead.
+Android is unaffected: FCM delivers to topics from the device's own subscription.
 
 ## The same registration is sent on every launch
 
-It should not be: the SDK hashes the payload and skips unchanged registrations. If you see
-repeated `POST /v1/installations`, something in the payload is changing every launch. Check
-`appVersion`, `locale` and `timezone`, and check that your backend is not returning a non-2xx
-status that prevents the hash from being stored.
+It should not be: the SDK hashes the payload and skips unchanged registrations. If you see repeated
+`POST /api/notifications/devices/register`, something in the payload is changing every launch.
+Check `appVersion`, `locale` and `timezone`, and check that your backend is not returning a
+non-2xx status that prevents the hash from being stored.
+
+Logging in or out legitimately re-sends Register with an unchanged body, once.
 
 ## Android notification icon is a grey square
 

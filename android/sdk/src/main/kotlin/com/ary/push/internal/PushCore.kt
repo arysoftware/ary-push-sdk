@@ -241,7 +241,7 @@ internal class PushCore private constructor(
                 }
             )
             restClient = client
-            RestPushBackend(client, backendConfig)
+            RestPushBackend(client, backendConfig) { buildInstallation() }
         } catch (t: Throwable) {
             PushLogger.e(t) { "Could not build the REST backend; synchronisation is disabled" }
             NoopPushBackend
@@ -369,6 +369,32 @@ internal class PushCore private constructor(
             withContext(Dispatchers.Main) {
                 runCatching { callback(segments) }
                     .onFailure { PushLogger.e(it) { "Segment callback threw" } }
+            }
+        }
+    }
+
+    /**
+     * Adds this installation to a segment, answering on the main thread exactly once.
+     *
+     * Deliberately not queued: this is an explicit request whose outcome the caller wants to
+     * know, and a durable queue would have to report success before the server had agreed.
+     */
+    fun subscribeToSegmentAsync(segmentId: String, callback: (Boolean) -> Unit) {
+        scope.launch {
+            val result = runCatching { backend.subscribeToSegment(segmentId, buildInstallation()) }
+                .getOrElse { error ->
+                    PushLogger.e(error) { "Segment subscription threw" }
+                    null
+                }
+            val subscribed = result?.isSuccess == true
+            if (!subscribed) {
+                PushLogger.w { "Could not subscribe to segment $segmentId: $result" }
+            } else {
+                PushLogger.i { "Subscribed to segment $segmentId" }
+            }
+            withContext(Dispatchers.Main) {
+                runCatching { callback(subscribed) }
+                    .onFailure { PushLogger.e(it) { "Segment subscription callback threw" } }
             }
         }
     }

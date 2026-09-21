@@ -9,11 +9,11 @@
 # ARY's private spec repository, or directly from the private Git repository:
 #
 #   pod 'ARYPush', :git => 'https://github.com/arysoftware/ary-push-sdk.git',
-#                      :tag => 'v1.0.0', :branch => nil
+#                      :tag => 'v1.1.0', :branch => nil
 #
 Pod::Spec.new do |s|
   s.name             = 'ARYPush'
-  s.version          = '1.0.0'
+  s.version          = '1.1.0'
   s.summary          = 'Private ARY push notification SDK for iOS.'
   s.description      = <<-DESC
     Handles the complete client-side push lifecycle: authorization, APNs registration and token

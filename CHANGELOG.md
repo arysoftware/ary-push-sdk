@@ -5,33 +5,72 @@ All notable changes to the ARY Push SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Version numbers are shared across Android, iOS and Flutter: a single tag `v1.0.0` releases all
+Version numbers are shared across Android, iOS and Flutter: a single tag such as `v1.1.0` releases all
 three artifacts, so host applications only ever reason about one SDK version.
 
-## [Unreleased]
+## [1.1.0] - 2026-09-21
+
+### Changed — backend contract (breaking for the server)
+
+The SDK now talks to exactly five project-scoped endpoints. Every request carries
+`Authorization: Bearer <authToken>` and `?projectId=<projectId>`.
+
+| Operation | Request |
+| --- | --- |
+| Register Device | `POST /api/notifications/devices/register` |
+| Device Token Update | `PUT /api/notifications/devices/update` |
+| Subscribe / Unsubscribe | `PUT /api/notifications/devices/toggle` |
+| Add Segment Subscriber | `POST /api/segments/{segmentId}/subscribers` |
+| Segment List | `GET /api/segments/list` |
+
+These replace the previous `/v1/installations/...` and `/v1/events` endpoints, which the SDK no
+longer calls. User identity, tags, topics and events have no endpoint in this contract: they keep
+working on the device and are no longer sent to the server. On iOS this means topic subscriptions
+no longer affect delivery, since APNs has no topics and the backend is not told about them.
+
+The full contract is in `docs/ARYPush-Technical-Specification.md`, with a matching Postman
+collection in `postman/`.
 
 ### Added
 
-- **Segments.** `getSegments()` and `isInSegment()` on all three platforms, backed by
-  `GET /v1/installations/{id}/segments`. Read-only: the backend computes membership from tags,
-  the SDK reports attributes and reads the answer. A segment rule changes far more often than an
-  app ships, so it stays on the server.
-- **JitPack is the distribution route**, via `jitpack.yml`, and the repository is public, so a
-  consuming application needs no token, account or credential on any platform. The coordinate is
-  `com.github.arysoftware:ary-push-sdk:<tag>`; a release is a git tag, with nothing uploaded to a
-  Maven host.
-- **GitHub Packages removed.** It requires a personal access token from every consumer even for a
-  public repository, which is not a cost an embedded SDK should impose. `com.ary:ary-push` remains
-  available for teams publishing to their own Maven repository, via `-ParyPush.group` and
-  `-ParyPush.artifact`.
+- **`projectId` and `authToken`** on `PushBackendConfig`, on Android, iOS and Flutter. The token is
+  masked whenever a configuration is printed, and is deliberately not read from `Info.plist`.
+  When an `AuthProvider` is also configured it wins; the static token is the fallback.
+- **`subscribeToSegment(segmentId)`** on all three platforms. A direct call, not queued, that
+  reports whether the server accepted it.
+- **`setFCMToken(token)`** in Flutter, so an app that sends to iOS through Firebase can supply the
+  FCM registration token. Accepted and ignored on Android.
+- `aryPush.sdkVersion`: the version devices report is now a plain semantic version, independent of
+  the Maven version, so a branch or commit build no longer reports `main-SNAPSHOT` or a hash.
 - **Flutter integration reduced to a pubspec entry.** The plugin declares the Maven repository on
-  every project in the host build and names the SDK coordinate itself, and its podspec vendors
-  the Swift SDK into its own pod. It reaches into the root project deliberately: Gradle resolves
-  a dependency graph using the repositories of the application module, not those of the module
-  that declared the dependency, so a repository declared only inside the plugin is never
-  consulted.
-- `scripts/set_repository.sh` to point the whole repository at a different GitHub home in one
-  pass.
+  every project in the host build and names the SDK coordinate itself; its podspec vendors the
+  Swift SDK into its own pod.
+- `scripts/set_repository.sh` to point the whole repository at a different GitHub home in one pass.
+
+### Changed
+
+- **`getSegments()`** now lists the project's segments rather than this installation's membership.
+- **Default Android coordinate** is `com.github.arysoftware:ary-push-sdk:main-SNAPSHOT`, which
+  works before any release is tagged. Pin a tag for production.
+- **Distribution is JitPack**, from the now-public repository. No token or account is needed on
+  any platform; GitHub Packages, which requires a token even for public repositories, is removed.
+
+### Deprecated
+
+- **`isInSegment(name)`** on all three platforms. With no membership read it can only report
+  whether a segment of that name exists in the project.
+
+### Fixed
+
+- **iOS segment lookups never worked.** The request path was a string literal missing its
+  interpolation backslashes, so every iOS lookup requested a URL containing
+  `(Path.installations)` and failed. Replaced along with the rest of the network layer.
+- Android devices would have reported `sdkVersion: "main-SNAPSHOT"` to the server.
+
+### Removed
+
+- Documentation for the retired API: `REST_API.md`, `BACKEND.md`, `BACKEND_IMPLEMENTATION.md`, and
+  the overlapping `QUICK_START.md` and `INTEGRATION.md`, all superseded by the specification.
 
 ## [1.0.0] - 2026-09-03
 

@@ -50,8 +50,23 @@ public final class NoopPushBackend: PushBackend {
     ) async -> ApiResult<Void> { ok }
 
     public func getSegments(installationId: String) async -> ApiResult<[Segment]> {
-        // No server, so nothing computes membership. An empty list is the truthful answer.
+        // No server, so no segments exist. An empty list is the truthful answer.
         .success([], statusCode: 200)
+    }
+
+    public func subscribeToSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void> {
+        // Unlike a tag, a segment subscription has no local meaning at all: it exists only on a
+        // server. Reporting success would tell the host it had subscribed when nothing did.
+        .failure(
+            ApiError(
+                statusCode: nil,
+                code: "no_backend",
+                message: "No backend is configured, so there is nothing to subscribe on"
+            )
+        )
     }
 
     public func trackEvents(

@@ -28,9 +28,10 @@
         |  SyncManager, PushBackend, RestClient       |
         +----------------------+----------------------+
                                |
-                     PRIVATE ARY PUSH API
-        Applications, Users, Installations, Tags
-                 Segment engine, Campaigns
+                       ARY PUSH API
+      5 endpoints: register, token update, toggle,
+          segment subscriber, segment list
+                 Segments, Campaigns
                                |
                           FCM / APNs
 ```
@@ -69,7 +70,7 @@ Everything else follows from this. `PushBackend` is an interface so the engine n
 | Component | Responsibility | Notable decision |
 | --- | --- | --- |
 | `UserManager` | The installation-to-user association | Logout clears the user and nothing else |
-| `TagManager` | Local tag state, debounced | A burst of `addTag` calls becomes one request |
+| `TagManager` | Local tag state, debounced | A burst of `addTag` calls becomes one queued operation |
 | `TopicManager` | Topic subscriptions | Validated against FCM's grammar on both platforms, so a topic means the same thing everywhere |
 | `StorageManager` | Namespaced isolated persistence | Every key under `ary_push.`, in the SDK's own store |
 | `OperationQueue` | Durable, bounded, self-coalescing queue | Newer state supersedes older; tag writes merge; events are trimmed first |
@@ -86,8 +87,8 @@ Three properties, each forced by a real failure:
 the device rebooted. So mutations are committed synchronously, not applied lazily.
 
 **Coalescing.** Collapse redundant work at the source instead of sending it and hoping the
-backend copes. Three `addTag` calls become one PATCH; a newer token replaces an older unsent one
-rather than queueing behind it; a logout supersedes an unsent identify.
+backend copes. Three `addTag` calls become one operation; a newer token replaces an older unsent
+one rather than queueing behind it; a logout supersedes an unsent identify.
 
 **Bounded.** A device offline for a week must not accumulate unbounded state. Past 100 entries
 the oldest low-value entries (events) are dropped first.
@@ -98,12 +99,17 @@ forever is a queue that never drains again.
 ## Ordering
 
 ```
-Register installation -> Update token -> Identify user -> Update tags
+Register installation -> Update token -> Toggle
 ```
 
 Encoded in the operation type's ordinal and enforced twice: the queue sorts by it, and each
 dependent operation re-checks registration before running. Belt and braces, because an
 installation can be created by a background message long before the queue is touched.
+
+Identity, tag, topic and event operations still pass through the queue in the same order, but
+`RestPushBackend` settles them locally: the push API has no endpoint for them. Keeping them in the
+queue means adding such an endpoint later is a change to one class, not to the sync machinery.
+The wire contract is in [ARYPush-Technical-Specification.md](ARYPush-Technical-Specification.md).
 
 ## Threading
 
@@ -145,7 +151,7 @@ Kept current for every release. A change here is at minimum a MINOR version.
 | --- | --- |
 | A UI layer | An SDK that renders screens ties itself to one app's design |
 | Navigation | The SDK cannot know what `order_id` means |
-| Segment evaluation | Segment rules change far more often than the app is released |
+| Segment evaluation | Segment rules change far more often than the app is released. The SDK can list segments and add the device to one; it never decides membership itself |
 | A dashboard | Not client-side work |
 | Analytics beyond push | Applications already have an analytics product |
 | A JSON library | `org.json` and `JSONSerialization` ship with the platforms |

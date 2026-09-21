@@ -180,14 +180,11 @@ class ARYPush {
 
   // ---------------------------------------------------------------- segments
 
-  /// Reads the segments this installation currently belongs to.
+  /// Lists the segments defined for the project.
   ///
-  /// Segments are groups the backend computes from the tags, user and device attributes the SDK
-  /// reports. "Premium Pakistan Users" is `subscription == premium AND country == PK`, defined
-  /// once on the server rather than compiled into every app, because that rule changes far more
-  /// often than an app ships.
-  ///
-  /// Read-only by design: to change which segments a device lands in, change its tags.
+  /// Backed by `GET /api/segments/list`. This is the project's segment catalogue — every segment
+  /// a device could be added with [subscribeToSegment] — not the segments this installation
+  /// belongs to: the push API has no per-installation membership read.
   ///
   /// An unreachable backend, or no backend at all, yields an empty list rather than throwing.
   static Future<List<Segment>> getSegments() async {
@@ -202,7 +199,32 @@ class ARYPush {
         .toList(growable: false);
   }
 
-  /// Whether this installation is in the named segment. Matches on name or id.
+  /// Adds this installation to a segment.
+  ///
+  /// Backed by `POST /api/segments/{segmentId}/subscribers`, which receives the full installation
+  /// record. Take [segmentId] from [getSegments].
+  ///
+  /// Resolves to whether the server accepted it. This is a direct request, not a queued one, so it
+  /// resolves to `false` while offline rather than reporting an optimistic success.
+  static Future<bool> subscribeToSegment(String segmentId) async {
+    if (segmentId.trim().isEmpty) {
+      throw ArgumentError.value(segmentId, 'segmentId', 'must not be blank');
+    }
+    return await _platform.invoke<bool>(
+          'subscribeToSegment',
+          <String, Object?>{'segmentId': segmentId},
+        ) ??
+        false;
+  }
+
+  /// Whether a segment with this name or id exists in the project.
+  ///
+  /// The push API exposes no per-installation membership, so this can only see the project's
+  /// segment list — it no longer answers whether this installation is in the segment.
+  @Deprecated(
+    'The push API has no membership read. This reports whether the segment exists in the '
+    'project, not whether this installation is in it. Use getSegments().',
+  )
   static Future<bool> isInSegment(String name) async {
     final List<Segment> segments = await getSegments();
     return segments.any(

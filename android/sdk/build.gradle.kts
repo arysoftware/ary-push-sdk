@@ -18,7 +18,15 @@ plugins {
 
 val sdkGroup: String = providers.gradleProperty("aryPush.group").getOrElse("com.ary")
 val sdkArtifact: String = providers.gradleProperty("aryPush.artifact").getOrElse("ary-push")
-val sdkVersion: String = providers.gradleProperty("aryPush.version").getOrElse("1.0.0")
+// Two versions, deliberately separate.
+//
+// sdkVersion is what the SDK reports about itself -- the `sdkVersion` field of every
+// registration, and the X-SDK-Version header -- so it must always be a plain semantic version the
+// backend can compare. publicationVersion is the Maven version, which under JitPack is whatever
+// git reference was requested (`main-SNAPSHOT`, a tag, a commit hash). Using one for the other
+// would have devices report "main-SNAPSHOT" to the server.
+val sdkVersion: String = providers.gradleProperty("aryPush.sdkVersion").getOrElse("1.1.0")
+val publicationVersion: String = providers.gradleProperty("aryPush.version").getOrElse(sdkVersion)
 
 android {
     namespace = "com.ary.push"
@@ -109,7 +117,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = sdkGroup
             artifactId = sdkArtifact
-            version = sdkVersion
+            version = publicationVersion
 
             afterEvaluate {
                 from(components["release"])

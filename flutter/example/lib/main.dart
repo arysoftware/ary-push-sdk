@@ -20,6 +20,9 @@ Future<void> main() async {
       backend: PushBackendConfig(
         baseUrl: 'https://push-api-dev.ary.com',
         applicationId: 'example_flutter',
+        projectId: 'YOUR_PROJECT_ID',
+        // In a real app, fetch this from your own login flow rather than hardcoding it.
+        authToken: 'YOUR_BEARER_TOKEN',
       ),
     ),
   );

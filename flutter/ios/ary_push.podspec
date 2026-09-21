@@ -14,7 +14,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ary_push'
-  s.version          = '1.0.0'
+  s.version          = '1.1.0'
   s.summary          = 'Flutter bridge for the private ARY Push SDK.'
   s.description      = 'MethodChannel and EventChannel bridge over the native ARYPush SDK.'
   s.homepage         = 'https://github.com/arysoftware/ary-push-sdk'

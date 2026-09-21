@@ -47,6 +47,8 @@ class PushBackendConfig {
   const PushBackendConfig({
     required this.baseUrl,
     this.applicationId,
+    this.projectId,
+    this.authToken,
     this.apiVersion = 'v1',
   });
 
@@ -61,15 +63,34 @@ class PushBackendConfig {
   /// and the backend must never treat it as authentication.
   final String? applicationId;
 
-  /// API version prefix. Endpoints are always versioned.
+  /// Project the installation belongs to.
+  ///
+  /// Sent as the `projectId` query parameter on every request, because the push API scopes
+  /// every call to a project.
+  final String? projectId;
+
+  /// Bearer token sent as `Authorization: Bearer <authToken>` on every request.
+  ///
+  /// Never logged by the SDK, and masked in [toString].
+  final String? authToken;
+
+  /// API version prefix, used only by endpoints addressed relative to a versioned root.
   final String apiVersion;
 
   /// Platform channel representation.
   Map<String, dynamic> toMap() => <String, dynamic>{
         'baseUrl': baseUrl,
         'applicationId': applicationId,
+        'projectId': projectId,
+        'authToken': authToken,
         'apiVersion': apiVersion,
       };
+
+  /// Masks [authToken], so a configuration that is printed while debugging does not leak it.
+  @override
+  String toString() => 'PushBackendConfig(baseUrl: $baseUrl, '
+      'applicationId: $applicationId, projectId: $projectId, '
+      'authToken: ${authToken == null || authToken!.isEmpty ? 'null' : '***'})';
 }
 
 /// Optional configuration for [ARYPush.initialize].

@@ -27,7 +27,10 @@ class SampleApplication : Application() {
                 // Omit `backend` entirely and everything above still works, with no server.
                 backend = PushBackendConfig(
                     baseUrl = "https://push-api-dev.ary.com",
-                    applicationId = "sample_android"
+                    applicationId = "sample_android",
+                    projectId = "YOUR_PROJECT_ID",
+                    // In a real app, fetch this from your own login flow rather than hardcoding it.
+                    authToken = "YOUR_BEARER_TOKEN"
                 )
             )
         )

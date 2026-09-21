@@ -55,14 +55,19 @@ ARYPush.initialize(
         foregroundDisplay: .show,
         backend: PushBackendConfig(
             baseURL: "https://push-api.ary.com",
-            applicationId: "wallet_ios"
+            applicationId: "wallet_ios",
+            projectId: "YOUR_PROJECT_ID",
+            authToken: "YOUR_BEARER_TOKEN"
         )
     )
 )
 ```
 
 Idempotent, thread-safe and cheap. Repeated calls reuse the same instance; a configuration passed
-later reconfigures in place.
+later reconfigures in place — which is also how to swap in a new `authToken` after login.
+
+The backend API, every request and response, is in the
+[technical specification](ARYPush-Technical-Specification.md).
 
 ### Configuring from Info.plist
 

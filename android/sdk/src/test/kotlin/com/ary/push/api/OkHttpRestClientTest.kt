@@ -40,11 +40,15 @@ class OkHttpRestClientTest {
 
     private fun client(
         auth: AuthProvider? = null,
-        applicationId: String? = "wallet_android"
+        applicationId: String? = "wallet_android",
+        projectId: String? = null,
+        authToken: String? = null
     ) = OkHttpRestClient(
         backendConfig = PushBackendConfig(
             baseUrl = server.url("/").toString().trimEnd('/'),
-            applicationId = applicationId
+            applicationId = applicationId,
+            projectId = projectId,
+            authToken = authToken
         ),
         networkConfig = NetworkConfig(),
         retryConfig = retry,
@@ -71,6 +75,90 @@ class OkHttpRestClientTest {
         client().post("installations", mapOf("a" to 1), parser = IgnoreBody)
 
         assertEquals("/v1/installations", server.takeRequest().path)
+    }
+
+    @Test
+    fun `an absolute path is resolved from the base URL with no version prefix`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+
+        client().post("/api/notifications/devices/register", null, parser = IgnoreBody)
+
+        assertEquals("/api/notifications/devices/register", server.takeRequest().path)
+    }
+
+    @Test
+    fun `projectId is added to every request, whatever the verb`() = runTest {
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(200).setBody("[]")) }
+        val client = client(projectId = "proj-42")
+
+        client.post("/api/notifications/devices/register", mapOf("a" to 1), parser = IgnoreBody)
+        client.put("/api/notifications/devices/update", mapOf("a" to 1), parser = IgnoreBody)
+        client.get("/api/segments/list") { it }
+
+        assertEquals("/api/notifications/devices/register?projectId=proj-42", server.takeRequest().path)
+        assertEquals("/api/notifications/devices/update?projectId=proj-42", server.takeRequest().path)
+        assertEquals("/api/segments/list?projectId=proj-42", server.takeRequest().path)
+    }
+
+    @Test
+    fun `projectId coexists with a request's own query parameters`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+
+        client(projectId = "proj-42").get("/api/segments/list", query = mapOf("page" to 2)) { it }
+
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("proj-42", url.queryParameter("projectId"))
+        assertEquals("2", url.queryParameter("page"))
+    }
+
+    @Test
+    fun `no projectId parameter is sent when none is configured`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+
+        client().post("/api/notifications/devices/register", null, parser = IgnoreBody)
+
+        assertNull(server.takeRequest().requestUrl!!.queryParameter("projectId"))
+    }
+
+    @Test
+    fun `a static authToken is sent as a bearer token`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+
+        client(authToken = "static-token").post("/api/x", null, parser = IgnoreBody)
+
+        assertEquals("Bearer static-token", server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `an AuthProvider wins over the static token, because it can refresh`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+        val provider = object : AuthProvider {
+            override suspend fun getAccessToken(): String = "dynamic-token"
+        }
+
+        client(auth = provider, authToken = "static-token").post("/api/x", null, parser = IgnoreBody)
+
+        assertEquals("Bearer dynamic-token", server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `the static token covers an AuthProvider that has nothing to offer`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+        val provider = object : AuthProvider {
+            override suspend fun getAccessToken(): String? = null
+        }
+
+        client(auth = provider, authToken = "static-token").post("/api/x", null, parser = IgnoreBody)
+
+        assertEquals("Bearer static-token", server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `the backend configuration never prints its bearer token`() {
+        val config = PushBackendConfig(baseUrl = "https://push.example", authToken = "secret-value")
+
+        assertTrue("token must be masked", !config.toString().contains("secret-value"))
+        assertTrue(config.toString().contains("authToken=***"))
     }
 
     @Test
