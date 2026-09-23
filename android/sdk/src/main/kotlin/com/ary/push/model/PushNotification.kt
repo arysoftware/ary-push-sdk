@@ -57,8 +57,8 @@ public data class PushNotification(
         get() = data[KEY_ACTION]
 
     /**
-     * Destination to open when this notification is tapped, from the first of `url`, `deep_link`
-     * or `link` that carries a value.
+     * Destination to open when this notification is tapped, from the first of `url`, `deep_link`,
+     * `link` or `launch_url` that carries a value.
      *
      * The SDK opens this itself on tap. It is exposed so a host that wants to route the link
      * differently can read the same value it would have used.
@@ -89,6 +89,6 @@ public data class PushNotification(
         public const val KEY_ACTION: String = "action"
 
         /** Data keys carrying a destination to open on tap, in the order they are consulted. */
-        public val LAUNCH_URL_KEYS: List<String> = listOf("url", "deep_link", "link")
+        public val LAUNCH_URL_KEYS: List<String> = listOf("url", "deep_link", "link", "launch_url")
     }
 }

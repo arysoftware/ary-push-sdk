@@ -73,11 +73,12 @@ class PushNotification {
   static const List<String> launchUrlKeys = <String>[
     'url',
     'deep_link',
-    'link'
+    'link',
+    'launch_url',
   ];
 
-  /// Destination opened when this notification is tapped, from the first of `url`, `deep_link`
-  /// or `link` that carries a value.
+  /// Destination opened when this notification is tapped, from the first of `url`, `deep_link`,
+  /// `link` or `launch_url` that carries a value.
   ///
   /// The native SDK opens this itself on tap. It is exposed so a host that wants to route the
   /// link differently can read the same value it would have used.

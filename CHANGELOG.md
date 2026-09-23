@@ -33,9 +33,9 @@ collection in `postman/`.
 
 ### Added
 
-- **Automatic link handling on notification tap.** A payload carrying `url`, `deep_link` or
-  `link` is now opened by the SDK itself, in the foreground, the background and from terminated,
-  on Android and iOS. The first key present wins, in that order. Android tries the host
+- **Automatic link handling on notification tap.** A payload carrying `url`, `deep_link`, `link`
+  or `launch_url` is now opened by the SDK itself, in the foreground, the background and from
+  terminated, on Android and iOS. The first key present wins, in that order. Android tries the host
   application before any other handler, so a link the app declares a filter for opens in the app
   with no chooser; anything else goes wherever the system sends it. Only a tap on the notification
   body opens it — action buttons stay host-handled. `onNotificationOpened` is unchanged and still

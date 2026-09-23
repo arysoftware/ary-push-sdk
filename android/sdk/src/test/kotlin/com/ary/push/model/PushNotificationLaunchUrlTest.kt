@@ -13,28 +13,26 @@ class PushNotificationLaunchUrlTest {
     private fun notification(data: Map<String, String>) = PushNotification(id = "n1", data = data)
 
     @Test
-    fun `url, deep_link and link are all read`() {
+    fun `all four conventional keys are read`() {
         assertEquals("https://ary.com/a", notification(mapOf("url" to "https://ary.com/a")).launchUrl)
         assertEquals("myapp://order/42", notification(mapOf("deep_link" to "myapp://order/42")).launchUrl)
         assertEquals("https://ary.com/c", notification(mapOf("link" to "https://ary.com/c")).launchUrl)
+        assertEquals("https://ary.com/d", notification(mapOf("launch_url" to "https://ary.com/d")).launchUrl)
     }
 
     @Test
-    fun `url wins over deep_link, which wins over link`() {
-        assertEquals(
-            "https://ary.com/a",
-            notification(
-                mapOf(
-                    "url" to "https://ary.com/a",
-                    "deep_link" to "myapp://b",
-                    "link" to "https://ary.com/c"
-                )
-            ).launchUrl
+    fun `priority is url, then deep_link, then link, then launch_url`() {
+        val all = mapOf(
+            "url" to "https://ary.com/a",
+            "deep_link" to "myapp://b",
+            "link" to "https://ary.com/c",
+            "launch_url" to "https://ary.com/d"
         )
-        assertEquals(
-            "myapp://b",
-            notification(mapOf("deep_link" to "myapp://b", "link" to "https://ary.com/c")).launchUrl
-        )
+
+        assertEquals("https://ary.com/a", notification(all).launchUrl)
+        assertEquals("myapp://b", notification(all - "url").launchUrl)
+        assertEquals("https://ary.com/c", notification(all - "url" - "deep_link").launchUrl)
+        assertEquals("https://ary.com/d", notification(all - "url" - "deep_link" - "link").launchUrl)
     }
 
     @Test
@@ -42,6 +40,10 @@ class PushNotificationLaunchUrlTest {
         assertEquals(
             "https://ary.com/c",
             notification(mapOf("url" to "   ", "link" to "https://ary.com/c")).launchUrl
+        )
+        assertEquals(
+            "https://ary.com/d",
+            notification(mapOf("link" to "", "launch_url" to "https://ary.com/d")).launchUrl
         )
     }
 

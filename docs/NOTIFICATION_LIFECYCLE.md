@@ -122,8 +122,8 @@ and forwards to your delegate, so both run.
 
 ## Links
 
-A payload carrying `url`, `deep_link` or `link` is opened automatically on tap, in all three
-states. The first key present wins, in that order.
+A payload carrying `url`, `deep_link`, `link` or `launch_url` is opened automatically on tap, in
+all three states. The first key present wins, in that order.
 
 | | |
 | --- | --- |

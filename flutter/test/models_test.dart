@@ -99,7 +99,7 @@ void main() {
     PushNotification withData(Map<String, String> data) =>
         PushNotification.fromMap(<Object?, Object?>{'id': 'n1', 'data': data});
 
-    test('reads url, deep_link and link', () {
+    test('all four conventional keys are read', () {
       expect(
           withData(const <String, String>{'url': 'https://ary.com/a'})
               .launchUrl,
@@ -112,14 +112,19 @@ void main() {
           withData(const <String, String>{'link': 'https://ary.com/c'})
               .launchUrl,
           'https://ary.com/c');
+      expect(
+          withData(const <String, String>{'launch_url': 'https://ary.com/d'})
+              .launchUrl,
+          'https://ary.com/d');
     });
 
-    test('url wins over deep_link, which wins over link', () {
+    test('priority is url, then deep_link, then link, then launch_url', () {
       expect(
         withData(const <String, String>{
           'url': 'https://ary.com/a',
           'deep_link': 'myapp://b',
           'link': 'https://ary.com/c',
+          'launch_url': 'https://ary.com/d',
         }).launchUrl,
         'https://ary.com/a',
       );
@@ -127,8 +132,21 @@ void main() {
         withData(const <String, String>{
           'deep_link': 'myapp://b',
           'link': 'https://ary.com/c',
+          'launch_url': 'https://ary.com/d',
         }).launchUrl,
         'myapp://b',
+      );
+      expect(
+        withData(const <String, String>{
+          'link': 'https://ary.com/c',
+          'launch_url': 'https://ary.com/d',
+        }).launchUrl,
+        'https://ary.com/c',
+      );
+      expect(
+        withData(const <String, String>{'launch_url': 'https://ary.com/d'})
+            .launchUrl,
+        'https://ary.com/d',
       );
     });
 

@@ -524,15 +524,16 @@ action buttons and tap tracking.
 | `title`, `body` | Notification content |
 | `image_url` | Large image |
 | `channel_id` | Android notification channel; falls back to the SDK default if unknown |
-| `url`, `deep_link`, `link` | **Opened automatically when the notification is tapped.** The first one present wins, in that order |
+| `url`, `deep_link`, `link`, `launch_url` | **Opened automatically when the notification is tapped.** The first one present wins, in that order |
 | `action` and custom keys | Passed verbatim to the app's tap handler, which decides where to navigate |
 | `actions` | Action buttons, as a **JSON-encoded string** |
 
 ### Links
 
-A payload carrying `url`, `deep_link` or `link` is opened by the SDK itself on tap, in every app
-state — foreground, background and terminated. Send an absolute URL: a universal or App Link
-(`https://…`) or a scheme the app registers (`myapp://order/42`).
+A payload carrying `url`, `deep_link`, `link` or `launch_url` is opened by the SDK itself on tap,
+in every app state — foreground, background and terminated. The first key present wins, in that
+order. Send an absolute URL: a universal or App Link (`https://…`) or a scheme the app registers
+(`myapp://order/42`).
 
 - If the application itself can handle the link, it opens **inside the app**. On Android the SDK
   tries the host application before anything else, so the user never sees a chooser.
