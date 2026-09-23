@@ -131,6 +131,11 @@ listener that attaches.
 
 `action` is a convenience accessor for `data["action"]`.
 
+`launchUrl` (`launchURL` on iOS) is the destination the SDK opens when the notification is
+tapped: the first of `data["url"]`, `data["deep_link"]` or `data["link"]` that carries a value.
+The SDK opens it itself, in every app state; it is exposed so a host that would rather route the
+link its own way can read the same value. Action-button taps do not open it.
+
 ## `ARYPushConfig`
 
 | Option | Default | Effect |

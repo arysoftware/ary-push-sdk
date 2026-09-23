@@ -95,6 +95,59 @@ void main() {
     });
   });
 
+  group('PushNotification.launchUrl', () {
+    PushNotification withData(Map<String, String> data) =>
+        PushNotification.fromMap(<Object?, Object?>{'id': 'n1', 'data': data});
+
+    test('reads url, deep_link and link', () {
+      expect(
+          withData(const <String, String>{'url': 'https://ary.com/a'})
+              .launchUrl,
+          'https://ary.com/a');
+      expect(
+          withData(const <String, String>{'deep_link': 'myapp://order/42'})
+              .launchUrl,
+          'myapp://order/42');
+      expect(
+          withData(const <String, String>{'link': 'https://ary.com/c'})
+              .launchUrl,
+          'https://ary.com/c');
+    });
+
+    test('url wins over deep_link, which wins over link', () {
+      expect(
+        withData(const <String, String>{
+          'url': 'https://ary.com/a',
+          'deep_link': 'myapp://b',
+          'link': 'https://ary.com/c',
+        }).launchUrl,
+        'https://ary.com/a',
+      );
+      expect(
+        withData(const <String, String>{
+          'deep_link': 'myapp://b',
+          'link': 'https://ary.com/c',
+        }).launchUrl,
+        'myapp://b',
+      );
+    });
+
+    test('a blank value is skipped, not opened', () {
+      expect(
+        withData(const <String, String>{
+          'url': '   ',
+          'link': 'https://ary.com/c'
+        }).launchUrl,
+        'https://ary.com/c',
+      );
+    });
+
+    test('a payload with no link at all has none', () {
+      expect(withData(const <String, String>{'action': 'open_order'}).launchUrl,
+          isNull);
+    });
+  });
+
   group('PushPermissionStatus', () {
     test('parses every value the native SDKs report', () {
       expect(

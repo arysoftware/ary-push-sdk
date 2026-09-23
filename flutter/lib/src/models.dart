@@ -69,6 +69,26 @@ class PushNotification {
   /// Convenience accessor for the conventional `action` data key.
   String? get action => data[actionKey] as String?;
 
+  /// Data keys carrying a destination to open on tap, in the order they are consulted.
+  static const List<String> launchUrlKeys = <String>[
+    'url',
+    'deep_link',
+    'link'
+  ];
+
+  /// Destination opened when this notification is tapped, from the first of `url`, `deep_link`
+  /// or `link` that carries a value.
+  ///
+  /// The native SDK opens this itself on tap. It is exposed so a host that wants to route the
+  /// link differently can read the same value it would have used.
+  String? get launchUrl {
+    for (final String key in launchUrlKeys) {
+      final String value = (data[key] as String? ?? '').trim();
+      if (value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
   /// Reconstructs a notification from the platform channel payload.
   factory PushNotification.fromMap(Map<Object?, Object?> map) {
     final Object? rawData = map['data'];

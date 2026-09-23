@@ -112,12 +112,28 @@ delivered exactly once.
 
 **Android.** Android 12 forbids starting an Activity from a service or broadcast receiver woken
 by a notification, so the SDK's click `PendingIntent` targets an invisible trampoline Activity.
-It records the open, dispatches the event, then launches your application's own launcher intent
-and finishes. It is translucent, `noHistory`, excluded from recents and has an empty task
-affinity, so the user never sees it and it never joins their task stack.
+It records the open, dispatches the event, then opens the payload's link if it has one and
+otherwise launches your application's own launcher intent, and finishes. It is translucent,
+`noHistory`, excluded from recents and has an empty task affinity, so the user never sees it and
+it never joins their task stack.
 
 **iOS.** `userNotificationCenter(_:didReceive:)` fires during launch. The SDK's proxy handles it
 and forwards to your delegate, so both run.
+
+## Links
+
+A payload carrying `url`, `deep_link` or `link` is opened automatically on tap, in all three
+states. The first key present wins, in that order.
+
+| | |
+| --- | --- |
+| Where it opens | Inside the app when the app can handle the link, otherwise wherever the system sends it. On Android the host application is tried first, so there is no chooser |
+| What is required | An absolute URL: `https://…`, or a scheme the app registers such as `myapp://order/42`. One without a scheme is ignored and the app is simply brought forward |
+| Action buttons | Do **not** open it. An action means something specific the app defined, so those stay host-handled |
+| `onNotificationOpened` | Still fires, with the same payload. The value is on the notification as `launchUrl`, so an app that would rather route the link itself can |
+
+This is the one exception to "the SDK never navigates". Everything else in the payload is handed
+to your handler untouched.
 
 A **dismissal** is not an open. Swiping a notification away produces no event: reporting it as an
 open would inflate engagement and, worse, send the user somewhere they did not ask to go.

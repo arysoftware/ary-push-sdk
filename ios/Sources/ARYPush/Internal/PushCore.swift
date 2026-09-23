@@ -433,6 +433,38 @@ extension PushCore {
 
         dispatcher.dispatchOpened(parsed)
         eventManager.trackNotificationOpened(id: parsed.id, actionId: actionId)
+        openLaunchURL(parsed)
+    }
+
+    /// Opens the notification's destination, if it has one.
+    ///
+    /// A payload carrying `url`, `deep_link` or `link` is opened automatically; anything else
+    /// leaves navigation to the host, exactly as before. iOS routes the URL itself: a universal
+    /// link or a scheme the application registers opens inside it, anything else opens wherever
+    /// the system decides.
+    private func openLaunchURL(_ notification: PushNotification) {
+        // Only a tap on the notification itself opens the link. An action button means something
+        // specific the host defined -- "Track", "Snooze", "Dismiss" -- and sending every one of
+        // them to the same URL would be wrong; those stay purely host-handled through the event.
+        guard notification.actionId == nil else { return }
+        guard let raw = notification.launchURL else { return }
+        guard let url = URL(string: raw), url.scheme?.isEmpty == false else {
+            // Without a scheme there is nothing for iOS to resolve, and guessing one would send
+            // the user somewhere the payload never asked for.
+            PushLogger.warn("Notification launch URL is not an absolute URL; ignoring it")
+            return
+        }
+
+        DispatchQueue.main.async {
+            let application = UIApplication.shared
+            guard application.canOpenURL(url) else {
+                PushLogger.warn("Nothing on this device can open the notification link")
+                return
+            }
+            application.open(url, options: [:]) { opened in
+                PushLogger.debug("Notification link \(opened ? "opened" : "could not be opened")")
+            }
+        }
     }
 
     /// Handles a silent or background remote notification.

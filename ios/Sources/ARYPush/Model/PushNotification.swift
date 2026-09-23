@@ -73,6 +73,22 @@ public struct PushNotification: Equatable {
     /// Convenience accessor for the conventional `action` payload key.
     public var action: String? { data[Self.actionKey] }
 
+    /// Payload keys carrying a destination to open on tap, in the order they are consulted.
+    public static let launchURLKeys = ["url", "deep_link", "link"]
+
+    /// Destination to open when this notification is tapped, from the first of `url`, `deep_link`
+    /// or `link` that carries a value.
+    ///
+    /// The SDK opens this itself on tap. It is exposed so a host that wants to route the link
+    /// differently can read the same value it would have used.
+    public var launchURL: String? {
+        for key in Self.launchURLKeys {
+            let value = data[key]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let value, !value.isEmpty { return value }
+        }
+        return nil
+    }
+
     /// Flat representation used by the Flutter bridge and by persistence.
     public func toDictionary() -> [String: Any] {
         var result: [String: Any] = [

@@ -510,6 +510,7 @@ action buttons and tap tracking.
   "body": "Your order is on its way",
   "image_url": "https://cdn.ary.com/order.png",
   "channel_id": "orders",
+  "url": "https://ary.com/orders/12345",
   "action": "open_order",
   "orderId": "12345",
   "actions": "[{\"id\":\"track\",\"title\":\"Track\"}]"
@@ -523,11 +524,27 @@ action buttons and tap tracking.
 | `title`, `body` | Notification content |
 | `image_url` | Large image |
 | `channel_id` | Android notification channel; falls back to the SDK default if unknown |
+| `url`, `deep_link`, `link` | **Opened automatically when the notification is tapped.** The first one present wins, in that order |
 | `action` and custom keys | Passed verbatim to the app's tap handler, which decides where to navigate |
 | `actions` | Action buttons, as a **JSON-encoded string** |
 
-The SDK never navigates on its own. The set of `action` values is a contract between the campaigns
-that send them and the app code that handles them — agree it with the mobile team and document it.
+### Links
+
+A payload carrying `url`, `deep_link` or `link` is opened by the SDK itself on tap, in every app
+state — foreground, background and terminated. Send an absolute URL: a universal or App Link
+(`https://…`) or a scheme the app registers (`myapp://order/42`).
+
+- If the application itself can handle the link, it opens **inside the app**. On Android the SDK
+  tries the host application before anything else, so the user never sees a chooser.
+- Otherwise the system decides, which for a plain web link means the browser.
+- A link with no scheme is ignored and the app is simply brought forward.
+- Only a tap on the notification body opens it. Action buttons stay host-handled, since `actions`
+  mean something specific the app defined.
+
+`ARYPush.onNotificationOpened` still fires either way, carrying the same payload, so an app that
+would rather route the link itself can keep doing so — the value is on the notification as
+`launchUrl`. Beyond that link the SDK does not navigate: the set of `action` values is a contract
+between the campaigns that send them and the app code that handles them.
 
 <div style="page-break-after: always;"></div>
 

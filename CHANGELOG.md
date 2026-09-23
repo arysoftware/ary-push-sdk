@@ -33,6 +33,14 @@ collection in `postman/`.
 
 ### Added
 
+- **Automatic link handling on notification tap.** A payload carrying `url`, `deep_link` or
+  `link` is now opened by the SDK itself, in the foreground, the background and from terminated,
+  on Android and iOS. The first key present wins, in that order. Android tries the host
+  application before any other handler, so a link the app declares a filter for opens in the app
+  with no chooser; anything else goes wherever the system sends it. Only a tap on the notification
+  body opens it — action buttons stay host-handled. `onNotificationOpened` is unchanged and still
+  fires, and the value is exposed as `PushNotification.launchUrl` (`launchURL` on iOS) for hosts
+  that would rather route it themselves.
 - **`projectId` and `authToken`** on `PushBackendConfig`, on Android, iOS and Flutter. The token is
   masked whenever a configuration is printed, and is deliberately not read from `Info.plist`.
   When an `AuthProvider` is also configured it wins; the static token is the fallback.

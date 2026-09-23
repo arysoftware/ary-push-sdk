@@ -56,6 +56,19 @@ public data class PushNotification(
     public val action: String?
         get() = data[KEY_ACTION]
 
+    /**
+     * Destination to open when this notification is tapped, from the first of `url`, `deep_link`
+     * or `link` that carries a value.
+     *
+     * The SDK opens this itself on tap. It is exposed so a host that wants to route the link
+     * differently can read the same value it would have used.
+     */
+    public val launchUrl: String?
+        get() = LAUNCH_URL_KEYS
+            .asSequence()
+            .mapNotNull { key -> data[key]?.trim() }
+            .firstOrNull { it.isNotEmpty() }
+
     /** Flat representation used by the Flutter bridge and by persistence. */
     public fun toMap(): Map<String, Any?> = mapOf(
         "id" to id,
@@ -74,5 +87,8 @@ public data class PushNotification(
     public companion object {
         /** Conventional data key carrying a host-defined action name. */
         public const val KEY_ACTION: String = "action"
+
+        /** Data keys carrying a destination to open on tap, in the order they are consulted. */
+        public val LAUNCH_URL_KEYS: List<String> = listOf("url", "deep_link", "link")
     }
 }
