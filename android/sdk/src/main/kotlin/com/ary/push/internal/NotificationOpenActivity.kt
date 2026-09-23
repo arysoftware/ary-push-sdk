@@ -1,11 +1,10 @@
 package com.ary.push.internal
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import com.ary.push.internal.log.PushLogger
+import com.ary.push.internal.notification.LaunchUrlOpener
 import com.ary.push.internal.notification.NotificationCodec
 
 /**
@@ -17,7 +16,7 @@ import com.ary.push.internal.notification.NotificationCodec
  *
  *  1. makes sure the SDK is initialized, because the tap may be what started the process;
  *  2. dispatches the open event, persisting it when no listener has attached yet;
- *  3. opens the payload's `url`, `deep_link` or `link` when it has one, and otherwise hands
+ *  3. opens the payload's link when it has one, and otherwise hands
  *     control to the host application's own launch intent.
  *
  * Beyond that link it does not navigate: it has no idea what `order_id` means, and deciding that
@@ -81,52 +80,7 @@ internal class NotificationOpenActivity : Activity() {
         // "Track", "Snooze", "Dismiss" -- and sending every one of them to the same URL would be
         // wrong, so those stay purely host-handled through the event.
         val launchUrl = if (!alreadyHandled && actionId == null) notification.launchUrl else null
-        if (!openLaunchUrl(launchUrl)) launchHostApplication()
-    }
-
-    /**
-     * Opens the notification's destination, if it has one.
-     *
-     * The host application is preferred over every other handler: an `https` link the application
-     * itself declares an intent filter for opens inside it rather than in a browser, and the user
-     * never sees a chooser. Only when nothing in the application can handle it does the link go
-     * to whichever app can, which is what makes a plain web link behave the way a user expects.
-     *
-     * @return true when something was started, so the caller knows not to launch the app as well.
-     */
-    private fun openLaunchUrl(launchUrl: String?): Boolean {
-        if (launchUrl.isNullOrBlank()) return false
-
-        val uri = runCatching { Uri.parse(launchUrl) }.getOrNull()
-        if (uri == null || uri.scheme.isNullOrBlank()) {
-            // Without a scheme there is nothing for Android to resolve, and guessing one would
-            // send the user somewhere the payload never asked for.
-            PushLogger.w { "Notification launch URL is not an absolute URI; opening the app instead" }
-            return false
-        }
-
-        return startViewIntent(uri, restrictToHostApplication = true) ||
-            startViewIntent(uri, restrictToHostApplication = false)
-    }
-
-    private fun startViewIntent(uri: Uri, restrictToHostApplication: Boolean): Boolean {
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        if (restrictToHostApplication) intent.setPackage(packageName)
-
-        return try {
-            startActivity(intent)
-            PushLogger.d {
-                "Opened notification link in " + if (restrictToHostApplication) "the app" else "another app"
-            }
-            true
-        } catch (e: ActivityNotFoundException) {
-            // Expected on the first attempt whenever the application declares no filter for it.
-            false
-        } catch (t: Throwable) {
-            PushLogger.e(t) { "Could not open the notification link" }
-            false
-        }
+        if (!LaunchUrlOpener.open(this, launchUrl)) launchHostApplication()
     }
 
     /**

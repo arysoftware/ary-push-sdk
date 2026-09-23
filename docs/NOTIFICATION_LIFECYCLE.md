@@ -133,13 +133,22 @@ all three states. The first key present wins, in that order.
 | Opened once | The open is deduplicated on message id and action before the link is opened, so one tap opens one URL however many times the system redelivers the intent |
 | `onNotificationOpened` | Still fires, with the same payload. The value is on the notification as `launchUrl`, so an app that would rather route the link itself can |
 
-> **Android needs the SDK to own the notification, which means a data-only message.** A message
-> carrying a `notification` block is rendered by the system while the app is backgrounded, and its
-> tap goes straight to your launcher activity without passing through the SDK — so no link is
-> opened. iOS is not affected: a tap always reaches the notification delegate. This is the same
-> reason the rest of this page recommends data-only, and it is the one case where the two
-> platforms differ. The Firebase console's "Send test message" sends a `notification` block, so
-> test links with a data-only message from your own backend instead.
+### Both message shapes work
+
+A link opens whether the SDK rendered the notification or the system did, through two paths:
+
+| The notification was rendered by | How the tap reaches the SDK |
+| --- | --- |
+| **The SDK** (data-only message) | Its click intent targets the SDK's trampoline Activity |
+| **The system** (`notification` block, app backgrounded) | FCM never calls the SDK, and the tap launches your own Activity — so the SDK reads the message out of that launch intent instead. iOS needs no equivalent: a tap always reaches the notification delegate |
+
+Both end at the same deduplicated open, so a message that somehow arrives by both paths opens its
+link once.
+
+For this to work from a **terminated** start, the SDK is brought up when the Flutter plugin
+registers rather than when Dart calls `initialize()`. Dart runs after the Activity exists and,
+on iOS, after the system has already delivered the tap — too late to catch it. The `initialize()`
+your app calls afterwards reconfigures the SDK in place, as it always has.
 
 This is the one exception to "the SDK never navigates". Everything else in the payload is handed
 to your handler untouched.

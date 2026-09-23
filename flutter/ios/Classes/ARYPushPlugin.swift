@@ -36,6 +36,18 @@ public class ARYPushPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var tokenListenerId: UUID?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
+        // Brings the SDK up during `didFinishLaunchingWithOptions`, where plugins are registered,
+        // rather than waiting for Dart to call initialize().
+        //
+        // It has to happen this early for a tap that launched the app from terminated: iOS
+        // delivers that to the notification delegate moments after launching finishes, which is
+        // before Dart's main() has run. Installing the delegate proxy only from Dart would lose
+        // the tap, and with it the payload's link.
+        //
+        // Configuration comes from Info.plist here, if any; the later call from Dart reconfigures
+        // in place, which is exactly what initialize() is documented to do.
+        ARYPush.initialize()
+
         let instance = ARYPushPlugin()
 
         let methodChannel = FlutterMethodChannel(

@@ -1,5 +1,6 @@
 package com.ary.push.internal
 
+import android.app.Activity
 import android.content.Context
 import com.ary.push.ARYPushConfig
 import com.ary.push.ForegroundDisplayPolicy
@@ -14,6 +15,8 @@ import com.ary.push.internal.installation.InstallationManager
 import com.ary.push.internal.log.PushLogger
 import com.ary.push.internal.net.ConnectivityMonitor
 import com.ary.push.internal.notification.DeduplicationManager
+import com.ary.push.internal.notification.LaunchIntentParser
+import com.ary.push.internal.notification.LaunchUrlOpener
 import com.ary.push.internal.notification.NotificationEventDispatcher
 import com.ary.push.internal.notification.NotificationParser
 import com.ary.push.internal.notification.NotificationRenderer
@@ -143,6 +146,10 @@ internal class PushCore private constructor(
         renderer.createDefaultChannel()
         PermissionRequestActivity.install { permissionManager.status }
         connectivity.start()
+
+        // A tap on a notification the system rendered arrives as intent extras on the host's own
+        // Activity and nowhere else, so the SDK watches for it. See [handleLaunchIntent].
+        foregroundTracker.onActivityIntent = { activity -> handleLaunchIntent(activity) }
 
         val installationId = installationManager.installationId
         PushLogger.i { "Installation ID loaded" }
@@ -308,6 +315,35 @@ internal class PushCore private constructor(
      * deduplicated separately from receipts, keyed on the action as well, so that tapping the
      * body and then an action button are two distinct events but a redelivered intent is not.
      */
+    /**
+     * Handles a tap on a notification the *system* rendered.
+     *
+     * FCM does not call the messaging service for a message carrying a `notification` block while
+     * the application is backgrounded: it renders that itself, and the tap launches the host
+     * application's own Activity with the message's data as intent extras. That intent is the
+     * only trace of the tap, so without this the payload's link would be lost on Android while
+     * iOS opened it, since a tap there always reaches the notification delegate.
+     *
+     * Deduplicated like every other open, so a message that also arrived through the messaging
+     * service, or an intent Android redelivers on resume, is handled exactly once.
+     */
+    private fun handleLaunchIntent(activity: Activity) {
+        val extras = activity.intent?.extras ?: return
+
+        val values = HashMap<String, String>(extras.size())
+        for (key in extras.keySet()) {
+            // getString returns null for anything that is not a string, which is what the
+            // transport's own booleans and numbers are; those are not part of a data payload.
+            extras.getString(key)?.let { values[key] = it }
+        }
+
+        val notification = LaunchIntentParser.parse(values) ?: return
+        if (!handleNotificationOpened(notification, systemNotificationId = 0)) return
+
+        PushLogger.d { "Handling a tap on a system-rendered notification: ${notification.id}" }
+        LaunchUrlOpener.open(activity, notification.launchUrl)
+    }
+
     /**
      * @return true when this open had not been seen before, false when it is a duplicate. The
      *   caller uses it to decide whether to act on the open again -- opening the payload's link

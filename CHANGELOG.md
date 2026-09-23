@@ -40,7 +40,18 @@ collection in `postman/`.
   with no chooser; anything else goes wherever the system sends it. Only a tap on the notification
   body opens it — action buttons stay host-handled. `onNotificationOpened` is unchanged and still
   fires, and the value is exposed as `PushNotification.launchUrl` (`launchURL` on iOS) for hosts
-  that would rather route it themselves.
+  that would rather route it themselves. The client application writes no code for any of it.
+- **Taps on notifications the system rendered now reach the SDK on Android.** FCM does not call
+  the messaging service for a message carrying a `notification` block while the application is
+  backgrounded; it renders that itself and the tap launches the host's own Activity. The SDK now
+  reads the message out of that launch intent, so such a tap dispatches its open and opens its
+  link exactly as one on a notification the SDK rendered. iOS needed nothing: a tap there always
+  reaches the notification delegate.
+- **The Flutter plugin brings the SDK up when it registers**, rather than when Dart calls
+  `initialize()`. A tap that launched the app from terminated is delivered before Dart runs — on
+  iOS to the notification delegate moments after launch, on Android as extras on an Activity that
+  already exists — so initializing from Dart alone lost it. The `initialize()` an application
+  calls afterwards reconfigures in place, as before.
 - **`projectId` and `authToken`** on `PushBackendConfig`, on Android, iOS and Flutter. The token is
   masked whenever a configuration is printed, and is deliberately not read from `Info.plist`.
   When an `AuthProvider` is also configured it wins; the static token is the fallback.

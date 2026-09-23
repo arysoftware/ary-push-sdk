@@ -26,6 +26,26 @@ internal class AppForegroundTracker private constructor() :
     /** True while at least one Activity is between `onStart` and `onStop`. */
     val isForeground: Boolean get() = startedActivities.get() > 0
 
+    /** Weak so an Activity the SDK merely observed can still be collected. */
+    private var lastActivity: java.lang.ref.WeakReference<Activity>? = null
+
+    /**
+     * Called with each Activity as it appears, so the SDK can inspect the intent that launched
+     * it. A notification the *system* rendered delivers its tap that way and no other, so this
+     * hook is the only place the SDK can see it.
+     *
+     * Assigning it replays the Activity already on screen, because the SDK is routinely
+     * initialized *after* that Activity was created -- a Flutter application initializes from
+     * Dart, which runs once the engine is up. Without the replay, a cold start from a tap would
+     * set this hook a moment too late and lose the very intent it exists to read.
+     */
+    var onActivityIntent: ((Activity) -> Unit)? = null
+        set(value) {
+            field = value
+            val current = lastActivity?.get() ?: return
+            if (value != null) notifyIntent(current)
+        }
+
     override fun onActivityStarted(activity: Activity) {
         startedActivities.incrementAndGet()
     }
@@ -41,8 +61,29 @@ internal class AppForegroundTracker private constructor() :
         }
     }
 
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
-    override fun onActivityResumed(activity: Activity) = Unit
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        lastActivity = java.lang.ref.WeakReference(activity)
+        notifyIntent(activity)
+    }
+
+    /**
+     * Also checked on resume, because a `singleTop` Activity that is already running receives a
+     * tap through `onNewIntent` rather than a fresh `onActivityCreated`, and there is no
+     * lifecycle callback for that. Handling the same intent twice is harmless: the open is
+     * deduplicated before anything acts on it.
+     */
+    override fun onActivityResumed(activity: Activity) {
+        lastActivity = java.lang.ref.WeakReference(activity)
+        notifyIntent(activity)
+    }
+
+    private fun notifyIntent(activity: Activity) {
+        val listener = onActivityIntent ?: return
+        // Host code, and it runs on the main thread during a lifecycle callback: a throw here
+        // would surface as a crash in an Activity the SDK merely observed.
+        runCatching { listener(activity) }
+            .onFailure { PushLogger.e(it) { "Failed to inspect a launch intent" } }
+    }
     override fun onActivityPaused(activity: Activity) = Unit
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
     override fun onActivityDestroyed(activity: Activity) = Unit

@@ -57,6 +57,16 @@ public class ARYPushPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Stre
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
+
+        // Brings the SDK up while the Activity is still being created, rather than waiting for
+        // Dart to call initialize().
+        //
+        // It has to happen this early for a tap on a notification the system rendered: that
+        // arrives as extras on the host Activity's launch intent, and the SDK can only read it
+        // once it is watching. Configuration comes from the manifest here, if any; the later call
+        // from Dart reconfigures in place, which is what initialize() is documented to do.
+        ARYPush.initialize(applicationContext)
+
         methodChannel = MethodChannel(binding.binaryMessenger, METHOD_CHANNEL)
         methodChannel.setMethodCallHandler(this)
         eventChannel = EventChannel(binding.binaryMessenger, EVENT_CHANNEL)

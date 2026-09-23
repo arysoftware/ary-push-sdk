@@ -547,6 +547,68 @@ would rather route the link itself can keep doing so — the value is on the not
 `launchUrl`. Beyond that link the SDK does not navigate: the set of `action` values is a contract
 between the campaigns that send them and the app code that handles them.
 
+**The client application writes no code for this.** No payload parsing, no tap handler, no
+`url_launcher`, no `flutter_local_notifications`. Sending one of the four keys is the whole
+integration.
+
+#### Example payloads
+
+Data-only, which behaves identically on both platforms and in all three app states:
+
+```json
+{
+  "message": {
+    "token": "DEVICE_FCM_TOKEN",
+    "data": {
+      "ary_push": "1",
+      "notification_id": "offer-123",
+      "title": "New offer",
+      "body": "Tap to view details",
+      "url": "https://yourdomain.com/offers/123"
+    },
+    "android": { "priority": "high" },
+    "apns": {
+      "headers": { "apns-priority": "10" },
+      "payload": { "aps": { "content-available": 1, "sound": "default" } }
+    }
+  }
+}
+```
+
+With a `notification` block, when you want the system to render it. The link still has to be in
+`data`, never in `notification`:
+
+```json
+{
+  "message": {
+    "token": "DEVICE_FCM_TOKEN",
+    "notification": { "title": "New offer", "body": "Tap to view details" },
+    "data": {
+      "ary_push": "1",
+      "notification_id": "offer-123",
+      "url": "https://yourdomain.com/offers/123"
+    },
+    "android": { "priority": "high" },
+    "apns": { "payload": { "aps": { "sound": "default" } } }
+  }
+}
+```
+
+An in-app route instead of a web address — anything the app registers a scheme or App Link for:
+
+```json
+{ "data": { "ary_push": "1", "notification_id": "order-42", "deep_link": "myapp://order/42" } }
+```
+
+Rules that matter:
+
+| Rule | Why |
+| --- | --- |
+| The link goes in `data`, never in `notification` | FCM drops unknown `notification` fields; the SDK reads `data` |
+| Every `data` value must be a **string** | FCM rejects nested objects and non-string values with `400 INVALID_ARGUMENT` |
+| Do not set `click_action` | It routes the tap somewhere the SDK is not, and nothing in a Flutter app answers it |
+| Always send `notification_id` | It is what deduplicates resends, and what guarantees one tap opens one link |
+
 <div style="page-break-after: always;"></div>
 
 ## 7. SDK Integration — Android (Kotlin)
