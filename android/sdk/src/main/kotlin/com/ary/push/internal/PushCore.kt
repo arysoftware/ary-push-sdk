@@ -308,14 +308,20 @@ internal class PushCore private constructor(
      * deduplicated separately from receipts, keyed on the action as well, so that tapping the
      * body and then an action button are two distinct events but a redelivered intent is not.
      */
-    fun handleNotificationOpened(notification: PushNotification, systemNotificationId: Int) {
+    /**
+     * @return true when this open had not been seen before, false when it is a duplicate. The
+     *   caller uses it to decide whether to act on the open again -- opening the payload's link
+     *   twice for one tap is exactly the kind of thing a redelivered intent would otherwise cause.
+     */
+    fun handleNotificationOpened(notification: PushNotification, systemNotificationId: Int): Boolean {
         val openKey = "open:${notification.id}:${notification.actionId.orEmpty()}"
-        if (!deduplication.markSeenIfNew(openKey)) return
+        if (!deduplication.markSeenIfNew(openKey)) return false
 
         if (systemNotificationId != 0) renderer.cancel(systemNotificationId)
 
         dispatcher.dispatchOpened(notification)
         eventManager.trackNotificationOpened(notification.id, notification.actionId)
+        return true
     }
 
     // ------------------------------------------------------------------ operations

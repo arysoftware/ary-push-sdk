@@ -54,25 +54,33 @@ internal class NotificationOpenActivity : Activity() {
             return
         }
 
+        // False unless the core positively reports this tap as one it has already handled. A core
+        // that is missing or that threw leaves it false, so a bookkeeping failure never costs the
+        // user the link they tapped for.
+        var alreadyHandled = false
+
         try {
             // The tap may be what started this process, so the core cannot be assumed to exist.
             PushCore.ensureInitialized(applicationContext)
-            PushCore.instance?.handleNotificationOpened(
+            alreadyHandled = PushCore.instance?.handleNotificationOpened(
                 notification.copy(actionId = actionId),
                 systemNotificationId = systemId
-            )
+            ) == false
         } catch (t: Throwable) {
             // Never let SDK bookkeeping stop the user reaching the application they tapped for.
             PushLogger.e(t) { "Failed to dispatch the notification open event" }
         }
 
-        // A payload carrying url, deep_link or link is opened automatically; anything else just
-        // brings the application forward, as before.
+        // A payload carrying url, deep_link, link or launch_url is opened automatically; anything
+        // else just brings the application forward, as before.
         //
-        // Only a tap on the notification itself opens the link. An action button means something
-        // specific the host defined -- "Track", "Snooze", "Dismiss" -- and sending every one of
-        // them to the same URL would be wrong; those stay purely host-handled through the event.
-        val launchUrl = if (actionId == null) notification.launchUrl else null
+        // Skipped for a duplicate, so one tap opens one URL however many times the intent is
+        // delivered -- this Activity sees both onCreate and onNewIntent, and Android may redeliver.
+        //
+        // Skipped for an action button too: that means something specific the host defined --
+        // "Track", "Snooze", "Dismiss" -- and sending every one of them to the same URL would be
+        // wrong, so those stay purely host-handled through the event.
+        val launchUrl = if (!alreadyHandled && actionId == null) notification.launchUrl else null
         if (!openLaunchUrl(launchUrl)) launchHostApplication()
     }
 

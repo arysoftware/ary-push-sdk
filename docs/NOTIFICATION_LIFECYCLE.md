@@ -130,7 +130,16 @@ all three states. The first key present wins, in that order.
 | Where it opens | Inside the app when the app can handle the link, otherwise wherever the system sends it. On Android the host application is tried first, so there is no chooser |
 | What is required | An absolute URL: `https://…`, or a scheme the app registers such as `myapp://order/42`. One without a scheme is ignored and the app is simply brought forward |
 | Action buttons | Do **not** open it. An action means something specific the app defined, so those stay host-handled |
+| Opened once | The open is deduplicated on message id and action before the link is opened, so one tap opens one URL however many times the system redelivers the intent |
 | `onNotificationOpened` | Still fires, with the same payload. The value is on the notification as `launchUrl`, so an app that would rather route the link itself can |
+
+> **Android needs the SDK to own the notification, which means a data-only message.** A message
+> carrying a `notification` block is rendered by the system while the app is backgrounded, and its
+> tap goes straight to your launcher activity without passing through the SDK — so no link is
+> opened. iOS is not affected: a tap always reaches the notification delegate. This is the same
+> reason the rest of this page recommends data-only, and it is the one case where the two
+> platforms differ. The Firebase console's "Send test message" sends a `notification` block, so
+> test links with a data-only message from your own backend instead.
 
 This is the one exception to "the SDK never navigates". Everything else in the payload is handed
 to your handler untouched.
