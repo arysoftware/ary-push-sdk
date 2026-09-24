@@ -12,6 +12,11 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Fixed
 
+- **The Flutter plugin always builds against the Android SDK from its own commit.** It used
+  JitPack's `main-SNAPSHOT`, which JitPack does not rebuild on push and Gradle caches for a day, so
+  an upgraded plugin compiled against an older SDK and failed with `Unresolved reference
+  'handleIntent'`. The plugin now reads the commit pub checked it out at and requests that exact
+  build; `flutter pub upgrade ary_push` moves both halves together. `arySdkCoordinate` still wins.
 - **Foreground notifications are shown on Android even when another messaging service wins.** FCM
   starts one `FirebaseMessagingService` per message and `firebase_messaging`'s outranks the SDK's,
   so in Flutter apps using it the SDK never saw a foreground message and nobody displayed it. The

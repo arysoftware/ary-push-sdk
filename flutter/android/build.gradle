@@ -68,17 +68,32 @@ def localSdkProject = rootProject.findProject(':ary-push-sdk')
 
 // JitPack's coordinate: it serves everything under com.github.<owner>.
 //
-// The default tracks the default branch rather than a release, so an application needs no
-// version to keep in step with — JitPack rebuilds `main-SNAPSHOT` whenever the branch moves, and
-// Gradle treats any `-SNAPSHOT` version as a changing module and re-checks it.
+// By default the native SDK is built from the very commit this plugin was checked out at, so the
+// two halves can never disagree. Pub checks a git dependency out into a directory named after the
+// commit it resolved -- `<pub-cache>/git/ary-push-sdk-<40-hex sha>/flutter` -- and JitPack builds
+// any commit on request. `flutter pub upgrade ary_push` therefore moves both halves together, with
+// nothing to edit in the application.
 //
-// Pin it from android/gradle.properties when you want a fixed build, which is what a production
-// application should do. Any of these works — a tag, a commit, or another repository:
+// Tracking `main-SNAPSHOT` instead let them drift: Gradle caches a changing module for 24 hours,
+// so a plugin that had moved on compiled against an SDK that had not, and failed with an
+// unresolved reference to whatever the new plugin called.
+//
+// Outside the pub cache -- a path dependency, or this repository's own examples -- there is no
+// commit to read, and `main-SNAPSHOT` is used, with that same 24-hour cache.
+//
+// An explicit pin in android/gradle.properties still wins. Any of these works:
 //
 //     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.1.0
 //     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:<commit-hash>
 //     arySdkCoordinate=com.ary:ary-push:1.1.0
-def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?: 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT'
+def pluginCommit = {
+    def matcher = (projectDir.parentFile.parentFile.name =~ /^ary-push-sdk-([0-9a-f]{40})$/)
+    matcher.matches() ? matcher.group(1) : null
+}()
+def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?:
+    (pluginCommit ? "com.github.arysoftware:ary-push-sdk:${pluginCommit.take(10)}"
+                  : 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT')
+logger.lifecycle("ARY Push SDK: native SDK ${localSdkProject ? 'from ' + localSdkProject.path : arySdkCoordinate}")
 
 repositories {
     google()
