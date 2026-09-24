@@ -1,6 +1,7 @@
 package com.ary.push.internal
 
 import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import com.ary.push.ARYPushConfig
 import com.ary.push.ForegroundDisplayPolicy
@@ -150,7 +151,7 @@ internal class PushCore private constructor(
 
         // A tap on a notification the system rendered arrives as intent extras on the host's own
         // Activity and nowhere else, so the SDK watches for it. See [handleLaunchIntent].
-        foregroundTracker.onActivityIntent = { activity -> handleLaunchIntent(activity) }
+        foregroundTracker.onActivityIntent = { activity, intent -> handleLaunchIntent(activity, intent) }
 
         val installationId = installationManager.installationId
         PushLogger.i { "Installation ID loaded" }
@@ -354,8 +355,8 @@ internal class PushCore private constructor(
      * Deduplicated like every other open, so a message that also arrived through the messaging
      * service, or an intent Android redelivers on resume, is handled exactly once.
      */
-    private fun handleLaunchIntent(activity: Activity) {
-        val extras = activity.intent?.extras ?: return
+    fun handleLaunchIntent(activity: Activity, intent: Intent?) {
+        val extras = intent?.extras ?: return
 
         val values = HashMap<String, String>(extras.size())
         for (key in extras.keySet()) {

@@ -1,6 +1,8 @@
 package com.ary.push
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import com.ary.push.internal.PushCore
 import com.ary.push.internal.log.PushLogger
 import com.ary.push.model.PushNotification
@@ -371,6 +373,33 @@ public object ARYPush {
     @JvmStatic
     public fun removeNotificationOpenedListener(listener: (PushNotification) -> Unit) {
         requireCore("removeNotificationOpenedListener")?.dispatcher?.removeOpenedListener(listener)
+    }
+
+    /**
+     * Hands the SDK an intent the host Activity received through `onNewIntent`.
+     *
+     * A tap on a notification the system rendered, while the app is in the background, reaches an
+     * already-running `singleTop` Activity through `onNewIntent`, and no lifecycle callback reports
+     * that. The SDK sees it on its own for an AndroidX `ComponentActivity`, and the Flutter plugin
+     * forwards it; an Activity extending plain `android.app.Activity` must call this:
+     *
+     * ```kotlin
+     * override fun onNewIntent(intent: Intent) {
+     *     super.onNewIntent(intent)
+     *     ARYPush.handleIntent(this, intent)
+     * }
+     * ```
+     *
+     * Opens the notification's link, if it carries one. Safe to call for every intent, including
+     * ones that did not come from a notification, and more than once for the same tap.
+     */
+    @JvmStatic
+    public fun handleIntent(activity: Activity, intent: Intent?) {
+        try {
+            requireCore("handleIntent")?.handleLaunchIntent(activity, intent)
+        } catch (t: Throwable) {
+            PushLogger.e(t) { "ARYPush.handleIntent() failed" }
+        }
     }
 
     /**

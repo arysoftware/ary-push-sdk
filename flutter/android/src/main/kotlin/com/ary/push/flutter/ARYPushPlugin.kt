@@ -5,6 +5,9 @@ import com.ary.push.ARYPush
 import com.ary.push.model.PushNotification
 import com.ary.push.model.PushPermissionStatus
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.PluginRegistry
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -25,7 +28,8 @@ import io.flutter.plugin.common.MethodChannel.Result
  * restart would leave another listener behind and the app would show duplicate notifications
  * that disappear on a cold start.
  */
-public class ARYPushPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
+public class ARYPushPlugin :
+    FlutterPlugin, ActivityAware, MethodCallHandler, EventChannel.StreamHandler {
 
     private lateinit var methodChannel: MethodChannel
     private lateinit var eventChannel: EventChannel
@@ -81,6 +85,37 @@ public class ARYPushPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Stre
         eventChannel.setStreamHandler(null)
         eventSink = null
         pendingEvents.clear()
+    }
+
+    // ------------------------------------------------------------------ activity
+
+    private var activityBinding: ActivityPluginBinding? = null
+
+    /**
+     * A tap on a notification the system rendered, while the app is in the background, reaches
+     * the running FlutterActivity through onNewIntent. FlutterActivity does not make that the
+     * Activity's intent and no lifecycle callback reports it, so without this the SDK would only
+     * ever see the launch intent and the tap's link would be lost. Never consumes the intent:
+     * app_links and other plugins still receive it.
+     */
+    private val newIntentListener = PluginRegistry.NewIntentListener { intent ->
+        activityBinding?.activity?.let { ARYPush.handleIntent(it, intent) }
+        false
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activityBinding = binding
+        binding.addOnNewIntentListener(newIntentListener)
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) =
+        onAttachedToActivity(binding)
+
+    override fun onDetachedFromActivity() {
+        activityBinding?.removeOnNewIntentListener(newIntentListener)
+        activityBinding = null
     }
 
     // ------------------------------------------------------------------ events

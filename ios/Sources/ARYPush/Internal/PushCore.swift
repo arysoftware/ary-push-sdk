@@ -55,6 +55,19 @@ final class PushCore {
 
     private let configLock = NSLock()
 
+    /// True from an early start that expects the host's configuration to follow, until it does.
+    ///
+    /// The Flutter plugin starts the SDK before Dart runs, so that a tap which launched the app
+    /// is not lost, and Dart's `initialize()` only reconfigures it a moment later. A link opened
+    /// in between would be routed without the host's `universalLinkDomains`, and so sent to
+    /// Safari; it is held here instead. Main thread only.
+    private var awaitingHostConfiguration = false
+    private var heldLaunchURL: URL?
+
+    /// How long a held link waits for the host's configuration before it is opened regardless,
+    /// so an application that never calls `initialize()` from Dart still gets its link.
+    static let hostConfigurationTimeout: TimeInterval = 5
+
     private init(config: ARYPushConfig, storage: StorageManager, bundle: Bundle) {
         self.config = config
         self.storage = storage
@@ -157,6 +170,32 @@ extension PushCore {
         instance ?? initialize(config: nil, explicit: false)
     }
 
+    /// Starts the SDK from `Info.plist` now, and holds any notification link until the host's
+    /// own configuration arrives through ``ARYPush/initialize(_:)``.
+    ///
+    /// For a bridge -- the Flutter plugin -- that must start the SDK before the host's code has
+    /// run, and knows the host will configure it moments later.
+    @MainActor
+    static func initializeAwaitingHostConfiguration() {
+        let core = initialize(config: nil, explicit: false)
+        core.awaitingHostConfiguration = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + hostConfigurationTimeout) { [weak core] in
+            guard let core, core.awaitingHostConfiguration else { return }
+            PushLogger.warn("No configuration from the host yet; opening any held notification link")
+            core.hostConfigurationArrived()
+        }
+    }
+
+    /// Ends the wait for the host's configuration and opens a link held during it.
+    @MainActor
+    private func hostConfigurationArrived() {
+        awaitingHostConfiguration = false
+        guard let url = heldLaunchURL else { return }
+        heldLaunchURL = nil
+        PushLogger.info("Opening the notification link held until the app's configuration arrived")
+        route(url)
+    }
+
     /// Drops the singleton. Test-only: production code has no reason to tear the SDK down.
     static func resetForTesting() {
         lock.lock()
@@ -220,6 +259,7 @@ extension PushCore {
 
         PushLogger.configure(enabled: newConfig.enableLogging, level: newConfig.logLevel)
         PushLogger.info("Reconfigured")
+        Task { @MainActor in self.hostConfigurationArrived() }
 
         let backendChanged = previous.backend?.normalizedBaseURL != newConfig.backend?.normalizedBaseURL
             || previous.backend?.applicationId != newConfig.backend?.applicationId
@@ -465,24 +505,35 @@ extension PushCore {
             return
         }
 
-        let ownDomains = config.universalLinkDomains + InfoPlistConfigReader.universalLinkDomains()
-
         Task { @MainActor in
-            PushLogger.info("Attempting internal AppLink/Universal Link routing for URL: \(raw)")
-
-            if Self.isUniversalLink(url, ownedBy: ownDomains), Self.continueInApplication(url) {
+            if self.awaitingHostConfiguration {
+                PushLogger.info("Holding the notification link until the app's configuration arrives")
+                self.heldLaunchURL = url
                 return
             }
+            self.route(url)
+        }
+    }
 
-            // No canOpenURL check first: it answers false for any scheme missing from
-            // LSApplicationQueriesSchemes -- including the application's own -- so it blocked
-            // exactly the deep links this exists to open. open() reports failure itself.
-            UIApplication.shared.open(url, options: [:]) { opened in
-                if opened {
-                    PushLogger.debug("Notification link opened by the system")
-                } else {
-                    PushLogger.warn("Nothing on this device could open the notification link")
-                }
+    /// Sends `url` to the application itself when it is one of its own Universal Links, and to
+    /// the system otherwise. Reads the configuration at the moment of routing, not of the tap.
+    @MainActor
+    private func route(_ url: URL) {
+        PushLogger.info("Attempting internal AppLink/Universal Link routing for URL: \(url.absoluteString)")
+
+        let ownDomains = config.universalLinkDomains + InfoPlistConfigReader.universalLinkDomains()
+        if Self.isUniversalLink(url, ownedBy: ownDomains), Self.continueInApplication(url) {
+            return
+        }
+
+        // No canOpenURL check first: it answers false for any scheme missing from
+        // LSApplicationQueriesSchemes -- including the application's own -- so it blocked
+        // exactly the deep links this exists to open. open() reports failure itself.
+        UIApplication.shared.open(url, options: [:]) { opened in
+            if opened {
+                PushLogger.debug("Notification link opened by the system")
+            } else {
+                PushLogger.warn("Nothing on this device could open the notification link")
             }
         }
     }
@@ -510,9 +561,11 @@ extension PushCore {
     /// Hands a Universal Link to the application exactly as iOS would for a tap in another app:
     /// as a web-browsing `NSUserActivity` through `continue userActivity`.
     ///
-    /// The app delegate is asked first because it reports whether it handled the link; Flutter's
-    /// app delegate forwards it to plugins such as app_links from there. A scene delegate cannot
-    /// report back, so implementing the callback is taken as handling it.
+    /// Exactly one delegate is called, the one iOS itself would call: the scene delegate in a
+    /// scene-based application, the app delegate otherwise. Calling both delivered the link twice,
+    /// because Flutter's app delegate hands it to plugins such as app_links and still answers
+    /// false, and its scene delegate then hands it to them again. A scene delegate cannot report
+    /// back, so implementing the callback is taken as handling it.
     ///
     /// - Returns: false when nothing in the application takes the link, so the caller can still
     ///   open it in the browser rather than drop it.
@@ -522,23 +575,28 @@ extension PushCore {
         activity.webpageURL = url
         let application = UIApplication.shared
 
+        let scenes = application.connectedScenes
+        let scene = scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+            ?? scenes.first
+        if let scene, let delegate = scene.delegate {
+            guard delegate.responds(to: #selector(UISceneDelegate.scene(_:continue:))) else {
+                PushLogger.warn(
+                    "The scene delegate does not handle continue userActivity; opening the link in the browser"
+                )
+                return false
+            }
+            delegate.scene?(scene, continue: activity)
+            PushLogger.debug("Universal Link delivered to the scene delegate")
+            return true
+        }
+
         if let delegate = application.delegate,
            delegate.responds(
                to: #selector(UIApplicationDelegate.application(_:continue:restorationHandler:))
            ),
            delegate.application?(application, continue: activity, restorationHandler: { _ in }) == true {
             PushLogger.debug("Universal Link delivered to the app delegate")
-            return true
-        }
-
-        let scenes = application.connectedScenes
-        let scene = scenes.first { $0.activationState == .foregroundActive }
-            ?? scenes.first { $0.activationState == .foregroundInactive }
-            ?? scenes.first
-        if let scene, let delegate = scene.delegate,
-           delegate.responds(to: #selector(UISceneDelegate.scene(_:continue:))) {
-            delegate.scene?(scene, continue: activity)
-            PushLogger.debug("Universal Link delivered to the scene delegate")
             return true
         }
 

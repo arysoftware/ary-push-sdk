@@ -24,11 +24,28 @@ three artifacts, so host applications only ever reason about one SDK version.
 - **iOS foreground banners are no longer swallowed by deduplication.** A push with
   `content-available` reached `didReceiveRemoteNotification` first, which marked it seen, and
   `willPresent` then returned no options. Deduplication now only gates the event.
+- **Android opens a notification's link when it is tapped while the app is in the background.**
+  FCM draws that notification itself, and the tap reaches the running Activity through
+  `onNewIntent`. The SDK only read `activity.intent`, which `FlutterActivity` does not update, so
+  it saw the old launch intent and the link was lost. The Flutter plugin now forwards every new
+  intent to the SDK, and the SDK listens for them itself on an AndroidX `ComponentActivity`.
+- **iOS opens a notification's Universal Link in the app after a cold launch, in Flutter.** The
+  plugin starts the SDK before Dart runs, so a tap that launched the app was routed before Dart's
+  `universalLinkDomains` arrived, and the app's own link opened in Safari. The link is now held
+  until Dart's `initialize()` configures the SDK, or for at most five seconds.
+- **iOS delivers a notification's Universal Link to the app once.** It went to the app delegate
+  and then, because Flutter's answers false even after its plugins took it, to the scene delegate
+  as well. Only the delegate iOS itself would call is used now: the scene delegate in a
+  scene-based app, the app delegate otherwise.
+- **The iOS SDK compiles with Xcode 26.** An error response was parsed with `json??[...]`, which
+  current Swift rejects.
 - **iOS opens the app's own custom-scheme links.** A `canOpenURL` check answered false for any
   scheme not in `LSApplicationQueriesSchemes`, the app's own included, and the link was dropped.
 
 ### Added
 
+- **`ARYPush.handleIntent(activity, intent)`** (Android). A native app whose Activity extends
+  plain `android.app.Activity` calls it from `onNewIntent`, so background taps open their link.
 - **`universalLinkDomains`** (iOS, and Flutter on iOS; also `UniversalLinkDomains` in the
   `ARYPush` Info.plist dictionary). iOS sends an app's own Universal Link to Safari when that app
   opens it; a notification link on a listed host is delivered to the app's

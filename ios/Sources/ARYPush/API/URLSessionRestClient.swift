@@ -245,7 +245,7 @@ private extension URLSessionRestClient {
 
         guard (200...299).contains(response.statusCode) else {
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            let errorObject = (json??["error"] as? [String: Any]) ?? (json ?? nil)
+            let errorObject = (json?["error"] as? [String: Any]) ?? json
             return .failure(
                 ApiError(
                     statusCode: response.statusCode,

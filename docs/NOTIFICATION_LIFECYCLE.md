@@ -158,6 +158,25 @@ scheme you declare opens that screen with no chooser. Only when nothing in your 
 the package restriction dropped and the link opened by whichever app can — the browser, for a
 plain web link.
 
+A tap while the app is in the background reaches your running Activity through `onNewIntent`.
+The Flutter plugin and any AndroidX `ComponentActivity` (`AppCompatActivity`,
+`FlutterFragmentActivity`) pass it to the SDK on their own. An Activity that extends plain
+`android.app.Activity` must forward it:
+
+```kotlin
+override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    ARYPush.handleIntent(this, intent)
+}
+```
+
+In a Flutter app that reads links with `app_links`, also turn off Flutter's own deep linking on
+the Activity in `AndroidManifest.xml`, or Flutter's router tries to push each link as a route too:
+
+```xml
+<meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+```
+
 **iOS.** A custom scheme your app registers is opened with `UIApplication.open` and comes back to
 your `application(_:open:options:)` / `scene(_:openURLContexts:)`. The SDK no longer checks
 `canOpenURL` first: that answers false for any scheme missing from `LSApplicationQueriesSchemes`,
@@ -185,6 +204,15 @@ or, with no code, in `Info.plist`:
     <key>UniversalLinkDomains</key>
     <array><string>ary.com</string></array>
 </dict>
+```
+
+In a Flutter app that reads links with `app_links` (or anything other than Flutter's own router),
+also turn off Flutter's built-in deep linking in `ios/Runner/Info.plist`. Otherwise the engine
+passes every link its router does not know back to the system, and it opens in Safari as well:
+
+```xml
+<key>FlutterDeepLinkingEnabled</key>
+<false/>
 ```
 
 Use the same hosts as your `applinks:` Associated Domains entitlement; that spelling is accepted

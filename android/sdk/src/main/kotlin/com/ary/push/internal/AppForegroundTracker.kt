@@ -3,7 +3,9 @@ package com.ary.push.internal
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import androidx.core.app.OnNewIntentProvider
 import com.ary.push.internal.log.PushLogger
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -39,11 +41,14 @@ internal class AppForegroundTracker private constructor() :
      * Dart, which runs once the engine is up. Without the replay, a cold start from a tap would
      * set this hook a moment too late and lose the very intent it exists to read.
      */
-    var onActivityIntent: ((Activity) -> Unit)? = null
+    var onActivityIntent: ((Activity, Intent?) -> Unit)? = null
         set(value) {
             field = value
             val current = lastActivity?.get() ?: return
-            if (value != null) notifyIntent(current)
+            if (value != null) {
+                observeNewIntents(current)
+                notifyIntent(current, current.intent)
+            }
         }
 
     override fun onActivityStarted(activity: Activity) {
@@ -63,7 +68,25 @@ internal class AppForegroundTracker private constructor() :
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
         lastActivity = java.lang.ref.WeakReference(activity)
-        notifyIntent(activity)
+        observeNewIntents(activity)
+        notifyIntent(activity, activity.intent)
+    }
+
+    /** Activities already observed, so a replayed one is never given a second listener. */
+    private val observedActivities = java.util.Collections.newSetFromMap(
+        java.util.WeakHashMap<Activity, Boolean>()
+    )
+
+    /**
+     * A tap while the app is in the background reaches a running `singleTop` Activity through
+     * onNewIntent, which updates `activity.intent` only if the Activity calls setIntent -- and
+     * FlutterActivity, among others, does not. An AndroidX Activity reports new intents, so they
+     * are read from there; a plain Activity forwards them through ARYPush.handleIntent.
+     */
+    private fun observeNewIntents(activity: Activity) {
+        val provider = activity as? OnNewIntentProvider ?: return
+        if (!observedActivities.add(activity)) return
+        provider.addOnNewIntentListener { intent -> notifyIntent(activity, intent) }
     }
 
     /**
@@ -74,14 +97,14 @@ internal class AppForegroundTracker private constructor() :
      */
     override fun onActivityResumed(activity: Activity) {
         lastActivity = java.lang.ref.WeakReference(activity)
-        notifyIntent(activity)
+        notifyIntent(activity, activity.intent)
     }
 
-    private fun notifyIntent(activity: Activity) {
+    private fun notifyIntent(activity: Activity, intent: Intent?) {
         val listener = onActivityIntent ?: return
         // Host code, and it runs on the main thread during a lifecycle callback: a throw here
         // would surface as a crash in an Activity the SDK merely observed.
-        runCatching { listener(activity) }
+        runCatching { listener(activity, intent) }
             .onFailure { PushLogger.e(it) { "Failed to inspect a launch intent" } }
     }
     override fun onActivityPaused(activity: Activity) = Unit

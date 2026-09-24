@@ -45,8 +45,10 @@ public class ARYPushPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         // the tap, and with it the payload's link.
         //
         // Configuration comes from Info.plist here, if any; the later call from Dart reconfigures
-        // in place, which is exactly what initialize() is documented to do.
-        ARYPush.initialize()
+        // in place, which is exactly what initialize() is documented to do. Until it does, a
+        // tapped notification's link is held: routed now, it would miss Dart's
+        // universalLinkDomains and open the app's own link in Safari.
+        MainActor.assumeIsolated { PushCore.initializeAwaitingHostConfiguration() }
 
         let instance = ARYPushPlugin()
 
