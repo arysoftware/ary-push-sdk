@@ -51,8 +51,16 @@ enum InfoPlistConfigReader {
             collectDeviceInfo: dictionary["CollectDeviceInfo"] as? Bool ?? true,
             proxyNotificationCenterDelegate:
                 dictionary["ProxyNotificationCenterDelegate"] as? Bool ?? true,
-            proxyApplicationDelegate: dictionary["ProxyApplicationDelegate"] as? Bool ?? true
+            proxyApplicationDelegate: dictionary["ProxyApplicationDelegate"] as? Bool ?? true,
+            universalLinkDomains: universalLinkDomains(bundle: bundle)
         )
+    }
+
+    /// The `UniversalLinkDomains` array, read on its own so that it applies even when the
+    /// configuration came from `ARYPush.initialize(_:)` -- as it always does under Flutter.
+    static func universalLinkDomains(bundle: Bundle = .main) -> [String] {
+        let dictionary = bundle.object(forInfoDictionaryKey: rootKey) as? [String: Any]
+        return dictionary?["UniversalLinkDomains"] as? [String] ?? []
     }
 
     private static func logLevel(_ raw: String?) -> PushLogLevel? {

@@ -45,8 +45,13 @@ public class ARYPushConfig @JvmOverloads constructor(
     /** User-visible channel description. */
     public val defaultChannelDescription: String? = null,
 
-    /** Channel importance, using the `NotificationManager.IMPORTANCE_*` scale. */
-    public val defaultChannelImportance: Int = IMPORTANCE_DEFAULT,
+    /**
+     * Channel importance, using the `NotificationManager.IMPORTANCE_*` scale.
+     *
+     * High by default, because anything lower posts silently to the shade: a message that
+     * arrives while the application is open would never appear as a banner.
+     */
+    public val defaultChannelImportance: Int = IMPORTANCE_HIGH,
 
     /**
      * Small icon for rendered notifications.
@@ -169,7 +174,7 @@ public class ARYPushConfig @JvmOverloads constructor(
         private var defaultChannelId: String = DEFAULT_CHANNEL_ID
         private var defaultChannelName: String? = null
         private var defaultChannelDescription: String? = null
-        private var defaultChannelImportance: Int = IMPORTANCE_DEFAULT
+        private var defaultChannelImportance: Int = IMPORTANCE_HIGH
         private var smallIconResId: Int = 0
         private var accentColor: Int? = null
         private var foregroundDisplay: ForegroundDisplayPolicy = ForegroundDisplayPolicy.SHOW
@@ -227,10 +232,22 @@ public class ARYPushConfig @JvmOverloads constructor(
     }
 
     public companion object {
-        /** Channel used when neither the payload nor the configuration names one. */
-        public const val DEFAULT_CHANNEL_ID: String = "ary_push_default"
+        /**
+         * Channel used when neither the payload nor the configuration names one.
+         *
+         * Android never lets an application raise the importance of a channel that already
+         * exists, so making the default [IMPORTANCE_HIGH] needed a new id. The channel the SDK
+         * created before that, [LEGACY_DEFAULT_CHANNEL_ID], is removed when this one is created.
+         */
+        public const val DEFAULT_CHANNEL_ID: String = "ary_push_alerts"
+
+        /** The previous default channel, created at [IMPORTANCE_DEFAULT], which never showed a banner. */
+        public const val LEGACY_DEFAULT_CHANNEL_ID: String = "ary_push_default"
 
         /** Mirrors `NotificationManager.IMPORTANCE_DEFAULT` without requiring an API-26 import. */
         public const val IMPORTANCE_DEFAULT: Int = 3
+
+        /** Mirrors `NotificationManager.IMPORTANCE_HIGH`: the level that shows a heads-up banner. */
+        public const val IMPORTANCE_HIGH: Int = 4
     }
 }

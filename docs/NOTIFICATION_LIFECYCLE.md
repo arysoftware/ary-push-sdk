@@ -43,7 +43,24 @@ Use `EVENT_ONLY` when your app already shows its own in-app banner: otherwise th
 same message twice, once from you and once from the SDK.
 
 On iOS the SDK's presentation options are **unioned** with whatever the host's own
-`UNUserNotificationCenterDelegate` returns, so neither side can silence the other.
+`UNUserNotificationCenterDelegate` returns, so neither side can silence the other. With `SHOW` the
+SDK asks for `.banner`, `.list`, `.sound` and `.badge` every time iOS asks: deduplication only
+decides whether `onNotificationReceived` fires, never whether the banner appears, so a push that
+also carries `content-available` is no longer swallowed.
+
+On Android a foreground message is shown as a heads-up banner. That needs two things the SDK now
+arranges itself:
+
+- **The message has to reach the SDK.** FCM starts one `FirebaseMessagingService` per message, and
+  another library's service — `firebase_messaging`'s, in every Flutter app using it — outranks the
+  SDK's. The SDK also registers a receiver for the broadcast Google Play services sends each
+  message as, which reaches every receiver, so it sees foreground messages whichever service won.
+  Nothing is handled twice: both paths share one deduplication. No `flutter_local_notifications`
+  or `onMessage` listener is needed to show them.
+- **The channel has to be high importance.** See [Channels](#channels-android).
+
+With `logLevel` at `info` or below, each foreground banner logs
+`[ARYPush] Foreground notification intercepted. Displaying native banner.`
 
 ## Background
 
@@ -133,6 +150,50 @@ all three states. The first key present wins, in that order.
 | Opened once | The open is deduplicated on message id and action before the link is opened, so one tap opens one URL however many times the system redelivers the intent |
 | `onNotificationOpened` | Still fires, with the same payload. The value is on the notification as `launchUrl`, so an app that would rather route the link itself can |
 
+### How each platform keeps the link inside the app
+
+**Android.** The SDK builds `Intent(ACTION_VIEW, uri)` with `setPackage(<your package>)` first, so
+Android can only resolve it against your own manifest's intent filters: an App Link or custom
+scheme you declare opens that screen with no chooser. Only when nothing in your app matches is
+the package restriction dropped and the link opened by whichever app can — the browser, for a
+plain web link.
+
+**iOS.** A custom scheme your app registers is opened with `UIApplication.open` and comes back to
+your `application(_:open:options:)` / `scene(_:openURLContexts:)`. The SDK no longer checks
+`canOpenURL` first: that answers false for any scheme missing from `LSApplicationQueriesSchemes`,
+your own included, and was blocking exactly these links.
+
+A **Universal Link to your own domain is different**: iOS does not route an app's Universal Link
+back to the app that opens it, so `UIApplication.open` sends it to Safari. List your domains and
+the SDK delivers those links to you directly, as the `NSUserActivity` iOS would have delivered —
+`application(_:continue:restorationHandler:)`, or `scene(_:continue:)` for a scene-based app, and
+so Flutter's `app_links` and similar plugins receive it as usual:
+
+```swift
+ARYPushConfig(universalLinkDomains: ["ary.com", "*.ary.com"])
+```
+
+```dart
+ARYPushConfig(universalLinkDomains: <String>['ary.com', '*.ary.com'])
+```
+
+or, with no code, in `Info.plist`:
+
+```xml
+<key>ARYPush</key>
+<dict>
+    <key>UniversalLinkDomains</key>
+    <array><string>ary.com</string></array>
+</dict>
+```
+
+Use the same hosts as your `applinks:` Associated Domains entitlement; that spelling is accepted
+too. A link on any other host still goes to `UIApplication.open`, which opens another app's
+Universal Link in that app and a plain web link in Safari.
+
+Each tap logs `[ARYPush] Notification tap intercepted. Parsing link keys.`, and each link
+`[ARYPush] Attempting internal AppLink/Universal Link routing for URL: <url>`, at `info`.
+
 ### Both message shapes work
 
 A link opens whether the SDK rendered the notification or the system did, through two paths:
@@ -178,7 +239,13 @@ body and then an action button are two events while a redelivered intent is one.
 
 ## Channels (Android)
 
-The SDK creates and owns a default channel. A payload may name its own with `channel_id`.
+The SDK creates and owns a default channel, `ary_push_alerts`, at `IMPORTANCE_HIGH`: anything
+lower posts to the shade silently and never shows a banner while the app is open. A payload may
+name its own with `channel_id`, whose importance is then yours to choose.
+
+Earlier versions created `ary_push_default` at `IMPORTANCE_DEFAULT`. Android never lets an app
+raise an existing channel's importance, so the SDK creates the new channel and deletes that one;
+a channel id you configured yourself is never touched.
 
 If a payload names a channel that does not exist, API 26 and above **silently drops the
 notification**. The SDK falls back to its own channel instead: a notification on a slightly wrong

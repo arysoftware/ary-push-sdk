@@ -109,6 +109,7 @@ class ARYPushConfig {
     this.displayNotifications = true,
     this.backend,
     this.collectDeviceInfo = true,
+    this.universalLinkDomains = const <String>[],
   });
 
   /// Emit native SDK logs. Keep this off in release builds.
@@ -145,6 +146,15 @@ class ARYPushConfig {
   /// Send device model, OS version, locale and timezone with the installation record.
   final bool collectDeviceInfo;
 
+  /// iOS only: hosts whose links are this application's own Universal Links, such as
+  /// `example.com` or `*.example.com`.
+  ///
+  /// iOS sends an app's own Universal Link to Safari when that app opens it, so a notification
+  /// link on one of these hosts is delivered to the application directly instead. Also read from
+  /// `UniversalLinkDomains` in the `ARYPush` Info.plist dictionary. Android needs no equivalent:
+  /// App Links are resolved against the application's own intent filters first.
+  final List<String> universalLinkDomains;
+
   /// Platform channel representation.
   Map<String, dynamic> toMap() => <String, dynamic>{
         'enableLogging': enableLogging,
@@ -155,6 +165,7 @@ class ARYPushConfig {
         'foregroundDisplay': foregroundDisplay.name,
         'displayNotifications': displayNotifications,
         'collectDeviceInfo': collectDeviceInfo,
+        'universalLinkDomains': universalLinkDomains,
         'backend': backend?.toMap(),
       };
 }

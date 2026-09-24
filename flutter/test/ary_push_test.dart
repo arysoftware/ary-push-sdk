@@ -56,6 +56,7 @@ void main() {
           logLevel: PushLogLevel.debug,
           defaultChannelId: 'general',
           foregroundDisplay: ForegroundDisplayPolicy.eventOnly,
+          universalLinkDomains: <String>['ary.com'],
           backend: PushBackendConfig(
             baseUrl: 'https://push-api.ary.com',
             applicationId: 'wallet_flutter',
@@ -69,6 +70,7 @@ void main() {
       expect(arguments['logLevel'], 'debug');
       expect(arguments['defaultChannelId'], 'general');
       expect(arguments['foregroundDisplay'], 'eventOnly');
+      expect(arguments['universalLinkDomains'], <String>['ary.com']);
 
       final Map<Object?, Object?> backend =
           arguments['backend']! as Map<Object?, Object?>;

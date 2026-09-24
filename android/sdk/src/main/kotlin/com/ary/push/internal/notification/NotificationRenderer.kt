@@ -53,7 +53,9 @@ internal class NotificationRenderer(
             .setContentTitle(notification.title)
             .setContentText(notification.body)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // Below API 26 priority is what decides whether a heads-up banner appears; above it
+            // the channel's importance does, and the default channel is created high.
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(notification.sentAt ?: notification.receivedAt)
             .setContentIntent(openIntent(notification, actionId = null, systemId = systemId))
 
@@ -149,6 +151,19 @@ internal class NotificationRenderer(
             ?: appContext.getString(com.ary.push.R.string.ary_push_default_channel_description)
         manager.createNotificationChannel(channel)
         PushLogger.i { "Default notification channel '${config.defaultChannelId}' created" }
+
+        // The previous default channel was created below IMPORTANCE_HIGH and Android will never
+        // raise it, so it is replaced rather than kept: left in place, it would sit in the app's
+        // settings as a second "Notifications" entry that nothing posts to any more. Only the
+        // SDK's own default is touched; a channel the host configured is the host's to manage.
+        if (config.defaultChannelId == ARYPushConfig.DEFAULT_CHANNEL_ID &&
+            manager.getNotificationChannel(ARYPushConfig.LEGACY_DEFAULT_CHANNEL_ID) != null
+        ) {
+            manager.deleteNotificationChannel(ARYPushConfig.LEGACY_DEFAULT_CHANNEL_ID)
+            PushLogger.i {
+                "Replaced channel '${ARYPushConfig.LEGACY_DEFAULT_CHANNEL_ID}', which could not show banners"
+            }
+        }
     }
 
     // ------------------------------------------------------------------ intents and images

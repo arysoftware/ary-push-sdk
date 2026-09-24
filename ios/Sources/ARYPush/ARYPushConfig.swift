@@ -246,6 +246,17 @@ public struct ARYPushConfig {
     /// matching ``ARYPush`` methods itself.
     public let proxyApplicationDelegate: Bool
 
+    /// Hosts whose https links are this application's own Universal Links, such as `example.com` or
+    /// `*.example.com`.
+    ///
+    /// iOS never routes a Universal Link back to the application that opens it: handed to
+    /// `UIApplication.open`, a notification's link to the app's own domain opens in Safari. A link
+    /// on one of these hosts is therefore delivered to the application directly, through the same
+    /// `continue userActivity` callback iOS uses when the link is tapped anywhere else. Links on
+    /// other hosts, and every custom scheme, are still opened by the system. Also read from the
+    /// `UniversalLinkDomains` array in the `ARYPush` Info.plist dictionary; both lists apply.
+    public let universalLinkDomains: [String]
+
     public init(
         enableLogging: Bool = false,
         logLevel: PushLogLevel = .info,
@@ -262,7 +273,8 @@ public struct ARYPushConfig {
         collectDeviceInfo: Bool = true,
         tagSyncDebounce: TimeInterval = 0.75,
         proxyNotificationCenterDelegate: Bool = true,
-        proxyApplicationDelegate: Bool = true
+        proxyApplicationDelegate: Bool = true,
+        universalLinkDomains: [String] = []
     ) {
         self.enableLogging = enableLogging
         self.logLevel = logLevel
@@ -280,5 +292,6 @@ public struct ARYPushConfig {
         self.tagSyncDebounce = max(0, tagSyncDebounce)
         self.proxyNotificationCenterDelegate = proxyNotificationCenterDelegate
         self.proxyApplicationDelegate = proxyApplicationDelegate
+        self.universalLinkDomains = universalLinkDomains
     }
 }

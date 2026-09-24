@@ -8,6 +8,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version numbers are shared across Android, iOS and Flutter: a single tag such as `v1.1.0` releases all
 three artifacts, so host applications only ever reason about one SDK version.
 
+## [Unreleased]
+
+### Fixed
+
+- **Foreground notifications are shown on Android even when another messaging service wins.** FCM
+  starts one `FirebaseMessagingService` per message and `firebase_messaging`'s outranks the SDK's,
+  so in Flutter apps using it the SDK never saw a foreground message and nobody displayed it. The
+  SDK now also receives the broadcast Google Play services sends for every message, and renders
+  foreground messages from there; both paths share deduplication, so nothing is shown twice.
+- **Android foreground banners actually appear.** The default channel was `IMPORTANCE_DEFAULT`,
+  which posts to the shade without a heads-up banner. It is now `ary_push_alerts` at
+  `IMPORTANCE_HIGH`, with `PRIORITY_HIGH` below API 26. Android cannot raise an existing channel,
+  so the old `ary_push_default` channel is deleted when the new one is created.
+- **iOS foreground banners are no longer swallowed by deduplication.** A push with
+  `content-available` reached `didReceiveRemoteNotification` first, which marked it seen, and
+  `willPresent` then returned no options. Deduplication now only gates the event.
+- **iOS opens the app's own custom-scheme links.** A `canOpenURL` check answered false for any
+  scheme not in `LSApplicationQueriesSchemes`, the app's own included, and the link was dropped.
+
+### Added
+
+- **`universalLinkDomains`** (iOS, and Flutter on iOS; also `UniversalLinkDomains` in the
+  `ARYPush` Info.plist dictionary). iOS sends an app's own Universal Link to Safari when that app
+  opens it; a notification link on a listed host is delivered to the app's
+  `continue userActivity` handler instead.
+- `info`-level trace logs for a foreground banner, a notification tap and the link being routed.
+
 ## [1.1.0] - 2026-09-21
 
 ### Changed — backend contract (breaking for the server)

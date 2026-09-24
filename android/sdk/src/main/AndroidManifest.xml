@@ -47,6 +47,26 @@
         </service>
 
         <!--
+          Sees every FCM message, whichever messaging service FCM delivered it to.
+
+          Another library's service (firebase_messaging's, in a Flutter application) outranks
+          the one above, and then the SDK never saw a message: one that arrived while the app was
+          open was shown by nobody. A broadcast reaches every receiver, so this closes that gap
+          with no host code. Messages handled by both paths are deduplicated and handled once.
+
+          Only Google Play services holds c2dm.permission.SEND, so nothing else can reach it.
+        -->
+        <receiver
+            android:name="com.ary.push.messaging.ARYPushMessageReceiver"
+            android:directBootAware="false"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+            </intent-filter>
+        </receiver>
+
+        <!--
           Notification click trampoline.
 
           Android 12 (API 31) forbids starting an activity from a notification via a service or

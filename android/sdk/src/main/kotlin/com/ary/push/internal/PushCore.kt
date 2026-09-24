@@ -30,6 +30,7 @@ import com.ary.push.internal.tag.TagManager
 import com.ary.push.internal.token.TokenManager
 import com.ary.push.internal.topic.TopicManager
 import com.ary.push.internal.user.UserManager
+import com.ary.push.messaging.ARYPushMessaging
 import com.ary.push.model.Installation
 import com.ary.push.model.PushNotification
 import com.ary.push.model.PushPermissionStatus
@@ -294,6 +295,9 @@ internal class PushCore private constructor(
             (notification.title != null || notification.body != null)
 
         if (shouldRender) {
+            if (inForeground) {
+                PushLogger.i { "Foreground notification intercepted. Displaying native banner." }
+            }
             runCatching { renderer.render(notification) }
                 .onFailure { PushLogger.e(it) { "Rendering failed for ${notification.id}" } }
         }
@@ -309,12 +313,35 @@ internal class PushCore private constructor(
     }
 
     /**
-     * Handles a notification tap.
+     * Handles a message seen by [com.ary.push.messaging.ARYPushMessageReceiver] rather than by a
+     * messaging service.
      *
-     * Called from [NotificationOpenActivity], which may have started this process. Opens are
-     * deduplicated separately from receipts, keyed on the action as well, so that tapping the
-     * body and then an action button are two distinct events but a redelivered intent is not.
+     * FCM starts exactly one `FirebaseMessagingService`, and the SDK's is declared at a low
+     * priority so a host's own service wins. When that host service is `firebase_messaging`'s,
+     * which is every Flutter application using it, the SDK's service never runs: nothing renders a
+     * message that arrives while the application is open, because firebase_messaging never shows
+     * one on Android. The broadcast reaches every receiver, so this path sees the message whichever
+     * service won, and deduplication makes it a no-op when the SDK's own service handled it too.
+     *
+     * Deliberately narrower than the service path, since another service may be handling the
+     * same message as the application intends:
+     *
+     *  * in the foreground, a message is handled as the SDK's own service would handle it, unless
+     *    the host removed that service -- then only messages the backend sent are touched;
+     *  * in the background, only data-only messages the backend sent. The system already renders
+     *    any message with a `notification` block, and a data message from anyone else belongs to
+     *    whichever service received it.
      */
+    fun handleBroadcastMessage(message: RemoteMessage, sdkServiceDeclared: Boolean) {
+        val handle = shouldHandleBroadcast(
+            inForeground = foregroundTracker.isForeground,
+            sdkServiceDeclared = sdkServiceDeclared,
+            isOwnMessage = ARYPushMessaging.isARYPushMessage(message),
+            hasNotificationBlock = message.notification != null
+        )
+        if (handle) handleRemoteMessage(message)
+    }
+
     /**
      * Handles a tap on a notification the *system* rendered.
      *
@@ -340,11 +367,19 @@ internal class PushCore private constructor(
         val notification = LaunchIntentParser.parse(values) ?: return
         if (!handleNotificationOpened(notification, systemNotificationId = 0)) return
 
+        PushLogger.i { "Notification tap intercepted. Parsing link keys." }
+
         PushLogger.d { "Handling a tap on a system-rendered notification: ${notification.id}" }
         LaunchUrlOpener.open(activity, notification.launchUrl)
     }
 
     /**
+     * Handles a notification tap.
+     *
+     * Called from [NotificationOpenActivity], which may have started this process. Opens are
+     * deduplicated separately from receipts, keyed on the action as well, so that tapping the
+     * body and then an action button are two distinct events but a redelivered intent is not.
+     *
      * @return true when this open had not been seen before, false when it is a duplicate. The
      *   caller uses it to decide whether to act on the open again -- opening the payload's link
      *   twice for one tap is exactly the kind of thing a redelivered intent would otherwise cause.
@@ -495,6 +530,18 @@ internal class PushCore private constructor(
         val instance: PushCore? get() = core
 
         val isInitialized: Boolean get() = core != null
+
+        /** The rule [handleBroadcastMessage] applies, kept pure so it can be tested on the JVM. */
+        fun shouldHandleBroadcast(
+            inForeground: Boolean,
+            sdkServiceDeclared: Boolean,
+            isOwnMessage: Boolean,
+            hasNotificationBlock: Boolean
+        ): Boolean = if (inForeground) {
+            sdkServiceDeclared || isOwnMessage
+        } else {
+            isOwnMessage && !hasNotificationBlock
+        }
 
         /**
          * Creates the core, or reconfigures the existing one.

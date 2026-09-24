@@ -390,20 +390,26 @@ extension PushCore {
     ///
     /// Returning an empty option set is how the SDK suppresses its own banner; the proxy still
     /// unions this with whatever the host delegate asks for, so the host can never be silenced.
+    ///
+    /// Deduplication decides only whether the *event* is dispatched, never whether the banner
+    /// shows. A push carrying `content-available` reaches `didReceiveRemoteNotification` first,
+    /// which marks it seen, so gating the banner on it made exactly those notifications vanish
+    /// whenever the application was open. iOS asks here once per notification it would display,
+    /// so answering it every time cannot show one twice.
     func handleWillPresent(_ notification: UNNotification) -> UNNotificationPresentationOptions {
         let parsed = NotificationParser.parse(notification: notification, wasForeground: true)
-
-        guard deduplication.markSeenIfNew(parsed.id) else { return [] }
+        let isNew = deduplication.markSeenIfNew(parsed.id)
 
         switch config.foregroundDisplay {
         case .suppress:
             PushLogger.debug("Foreground policy is suppress; message \(parsed.id) dropped")
             return []
         case .eventOnly:
-            dispatch(received: parsed, foreground: true)
+            if isNew { dispatch(received: parsed, foreground: true) }
             return []
         case .show:
-            dispatch(received: parsed, foreground: true)
+            if isNew { dispatch(received: parsed, foreground: true) }
+            PushLogger.info("Foreground notification intercepted. Displaying native banner.")
             return Self.foregroundPresentationOptions
         }
     }
@@ -420,6 +426,7 @@ extension PushCore {
             PushLogger.debug("Notification dismissed, not opened")
             return
         }
+        PushLogger.info("Notification tap intercepted. Parsing link keys.")
 
         let parsed = NotificationParser.parse(
             notification: response.notification,
@@ -438,10 +445,13 @@ extension PushCore {
 
     /// Opens the notification's destination, if it has one.
     ///
-    /// A payload carrying `url`, `deep_link` or `link` is opened automatically; anything else
-    /// leaves navigation to the host, exactly as before. iOS routes the URL itself: a universal
-    /// link or a scheme the application registers opens inside it, anything else opens wherever
-    /// the system decides.
+    /// A payload carrying `url`, `deep_link`, `link` or `launch_url` is opened automatically;
+    /// anything else leaves navigation to the host, exactly as before.
+    ///
+    /// A link on one of the application's own Universal Link hosts is delivered to it directly,
+    /// because iOS sends an app's own Universal Link to Safari when that app is the one opening
+    /// it. Everything else goes to the system: a scheme the application registers comes back to
+    /// it, another app's Universal Link opens that app, and a plain web link opens in Safari.
     private func openLaunchURL(_ notification: PushNotification) {
         // Only a tap on the notification itself opens the link. An action button means something
         // specific the host defined -- "Track", "Snooze", "Dismiss" -- and sending every one of
@@ -455,16 +465,87 @@ extension PushCore {
             return
         }
 
-        DispatchQueue.main.async {
-            let application = UIApplication.shared
-            guard application.canOpenURL(url) else {
-                PushLogger.warn("Nothing on this device can open the notification link")
+        let ownDomains = config.universalLinkDomains + InfoPlistConfigReader.universalLinkDomains()
+
+        Task { @MainActor in
+            PushLogger.info("Attempting internal AppLink/Universal Link routing for URL: \(raw)")
+
+            if Self.isUniversalLink(url, ownedBy: ownDomains), Self.continueInApplication(url) {
                 return
             }
-            application.open(url, options: [:]) { opened in
-                PushLogger.debug("Notification link \(opened ? "opened" : "could not be opened")")
+
+            // No canOpenURL check first: it answers false for any scheme missing from
+            // LSApplicationQueriesSchemes -- including the application's own -- so it blocked
+            // exactly the deep links this exists to open. open() reports failure itself.
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened {
+                    PushLogger.debug("Notification link opened by the system")
+                } else {
+                    PushLogger.warn("Nothing on this device could open the notification link")
+                }
             }
         }
+    }
+
+    /// Whether `url` is an https or http link on one of `domains`, where `*.example.com` also
+    /// matches `example.com` and every subdomain of it.
+    static func isUniversalLink(_ url: URL, ownedBy domains: [String]) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              let host = url.host?.lowercased(), !host.isEmpty
+        else { return false }
+
+        return domains.contains { entry in
+            var domain = entry.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Accept the entitlement's own spelling, "applinks:example.com", as well.
+            if domain.hasPrefix("applinks:") { domain.removeFirst("applinks:".count) }
+            guard !domain.isEmpty else { return false }
+            if domain.hasPrefix("*.") {
+                let base = String(domain.dropFirst(2))
+                return host == base || host.hasSuffix("." + base)
+            }
+            return host == domain
+        }
+    }
+
+    /// Hands a Universal Link to the application exactly as iOS would for a tap in another app:
+    /// as a web-browsing `NSUserActivity` through `continue userActivity`.
+    ///
+    /// The app delegate is asked first because it reports whether it handled the link; Flutter's
+    /// app delegate forwards it to plugins such as app_links from there. A scene delegate cannot
+    /// report back, so implementing the callback is taken as handling it.
+    ///
+    /// - Returns: false when nothing in the application takes the link, so the caller can still
+    ///   open it in the browser rather than drop it.
+    @MainActor
+    static func continueInApplication(_ url: URL) -> Bool {
+        let activity = NSUserActivity(activityType: NSUserActivityTypeBrowsingWeb)
+        activity.webpageURL = url
+        let application = UIApplication.shared
+
+        if let delegate = application.delegate,
+           delegate.responds(
+               to: #selector(UIApplicationDelegate.application(_:continue:restorationHandler:))
+           ),
+           delegate.application?(application, continue: activity, restorationHandler: { _ in }) == true {
+            PushLogger.debug("Universal Link delivered to the app delegate")
+            return true
+        }
+
+        let scenes = application.connectedScenes
+        let scene = scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+            ?? scenes.first
+        if let scene, let delegate = scene.delegate,
+           delegate.responds(to: #selector(UISceneDelegate.scene(_:continue:))) {
+            delegate.scene?(scene, continue: activity)
+            PushLogger.debug("Universal Link delivered to the scene delegate")
+            return true
+        }
+
+        PushLogger.warn(
+            "Nothing in the application handles continue userActivity; opening the link in the browser"
+        )
+        return false
     }
 
     /// Handles a silent or background remote notification.

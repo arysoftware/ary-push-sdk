@@ -305,7 +305,8 @@ enum FlutterConfigMapper {
             autoRequestPermission: map["autoRequestPermission"] as? Bool ?? false,
             foregroundDisplay: foregroundPolicy(map["foregroundDisplay"] as? String) ?? .show,
             backend: backend,
-            collectDeviceInfo: map["collectDeviceInfo"] as? Bool ?? true
+            collectDeviceInfo: map["collectDeviceInfo"] as? Bool ?? true,
+            universalLinkDomains: map["universalLinkDomains"] as? [String] ?? []
         )
     }
 

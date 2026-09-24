@@ -36,6 +36,7 @@ internal object LaunchUrlOpener {
             return false
         }
 
+        PushLogger.i { "Attempting internal AppLink/Universal Link routing for URL: $launchUrl" }
         return startViewIntent(context, uri, restrictToHostApplication = true) ||
             startViewIntent(context, uri, restrictToHostApplication = false)
     }

@@ -41,6 +41,7 @@ internal class NotificationOpenActivity : Activity() {
 
     private fun handle(intent: Intent?) {
         if (intent == null) return
+        PushLogger.i { "Notification tap intercepted. Parsing link keys." }
 
         val raw = intent.getStringExtra(EXTRA_NOTIFICATION)
         val actionId = intent.getStringExtra(EXTRA_ACTION_ID)

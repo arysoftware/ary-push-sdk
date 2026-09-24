@@ -536,7 +536,11 @@ order. Send an absolute URL: a universal or App Link (`https://…`) or a scheme
 (`myapp://order/42`).
 
 - If the application itself can handle the link, it opens **inside the app**. On Android the SDK
-  tries the host application before anything else, so the user never sees a chooser.
+  tries the host application before anything else, so the user never sees a chooser. On iOS a
+  Universal Link to the app's own domain needs that domain listed in `universalLinkDomains`
+  (or `UniversalLinkDomains` in `Info.plist`): iOS sends an app's own Universal Link to Safari
+  when that app opens it, so the SDK delivers those to the app's `continue userActivity` handler
+  instead. See docs/NOTIFICATION_LIFECYCLE.md.
 - Otherwise the system decides, which for a plain web link means the browser.
 - A link with no scheme is ignored and the app is simply brought forward.
 - Only a tap on the notification body opens it. Action buttons stay host-handled, since `actions`
