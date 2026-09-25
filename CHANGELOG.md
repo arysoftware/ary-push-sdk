@@ -12,6 +12,11 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Fixed
 
+- **iOS no longer crashes on a foreground notification in apps using firebase_messaging.** Both
+  wrap whichever notification delegate they find; once the SDK re-installed itself around
+  firebase_messaging's, each forwarded to the other and the first foreground notification
+  recursed until the stack overflowed. A callback that comes back to the SDK's proxy is now
+  answered at once, so the banner shows and both delegates run exactly once.
 - **The Flutter plugin always builds against the Android SDK from its own commit.** It used
   JitPack's `main-SNAPSHOT`, which JitPack does not rebuild on push and Gradle caches for a day, so
   an upgraded plugin compiled against an older SDK and failed with `Unresolved reference

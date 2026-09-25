@@ -29,6 +29,19 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
 
     private weak var previous: UNUserNotificationCenterDelegate?
 
+    /// Notifications this proxy is handling right now, so a callback that comes back to it is
+    /// recognised as a loop rather than a new notification.
+    ///
+    /// firebase_messaging, like the SDK, wraps whichever delegate it finds. When it wraps the
+    /// SDK's proxy and the SDK then re-installs itself around firebase_messaging's delegate, each
+    /// forwards to the other: every callback went round until the stack overflowed, and the app
+    /// crashed on the first foreground notification. A callback re-entering here is answered at
+    /// once, which ends the loop with both delegates having run exactly once.
+    /// Main thread only, as every notification-centre callback is.
+    private var presenting = Set<String>()
+    private var responding = Set<String>()
+    private var openingSettings = false
+
     private let onWillPresent: (UNNotification) -> UNNotificationPresentationOptions
     private let onDidReceive: (UNNotificationResponse) -> Void
 
@@ -59,6 +72,13 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let key = notification.request.identifier
+        guard !presenting.contains(key) else {
+            // Our own forwarding, come back round: the outer call already has the SDK's answer.
+            completionHandler([])
+            return
+        }
+
         let sdkOptions = onWillPresent(notification)
 
         guard let previous,
@@ -70,7 +90,11 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
             return
         }
 
-        let once = OnceCompletion<UNNotificationPresentationOptions>(completionHandler)
+        presenting.insert(key)
+        let once = OnceCompletion<UNNotificationPresentationOptions>({ [weak self] options in
+            self?.presenting.remove(key)
+            completionHandler(options)
+        })
         previous.userNotificationCenter?(center, willPresent: notification) { hostOptions in
             // Union, not replacement: if either the SDK or the host wants a banner, the user
             // sees a banner. Letting one side veto the other is how notifications go missing.
@@ -84,6 +108,12 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        let key = response.notification.request.identifier + "|" + response.actionIdentifier
+        guard !responding.contains(key) else {
+            completionHandler()
+            return
+        }
+
         onDidReceive(response)
 
         guard let previous,
@@ -96,7 +126,11 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
         }
 
         // Wrapped rather than passed directly: Swift does not treat `() -> Void` as `(Void) -> Void`.
-        let once = OnceCompletion<Void>({ _ in completionHandler() })
+        responding.insert(key)
+        let once = OnceCompletion<Void>({ [weak self] _ in
+            self?.responding.remove(key)
+            completionHandler()
+        })
         previous.userNotificationCenter?(center, didReceive: response) {
             once.complete(())
         }
@@ -108,6 +142,9 @@ final class NotificationCenterDelegateProxy: NSObject, UNUserNotificationCenterD
         openSettingsFor notification: UNNotification?
     ) {
         // The SDK has no opinion here; it exists only so the host's implementation keeps working.
+        guard !openingSettings else { return }
+        openingSettings = true
+        defer { openingSettings = false }
         previous?.userNotificationCenter?(center, openSettingsFor: notification)
     }
 }
