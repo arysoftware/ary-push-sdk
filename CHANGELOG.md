@@ -12,6 +12,9 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Fixed
 
+- **`subscribeToSegment` always subscribes.** It sent the device's notification permission as
+  `notificationsEnabled`, which the segment endpoint reads as subscribe or unsubscribe, so on a
+  device with notifications turned off it unsubscribed. It now always sends `true`.
 - **iOS no longer crashes on a foreground notification in apps using firebase_messaging.** Both
   wrap whichever notification delegate they find; once the SDK re-installed itself around
   firebase_messaging's, each forwarded to the other and the first foreground notification
@@ -54,6 +57,9 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Added
 
+- **`unsubscribeFromSegment(segmentId)`** on Android, iOS and Flutter. It uses the same
+  `POST /api/segments/{segmentId}/subscribers` request as subscribing, with
+  `notificationsEnabled: false`, which the push API reads as unsubscribe.
 - **`ARYPush.handleIntent(activity, intent)`** (Android). A native app whose Activity extends
   plain `android.app.Activity` calls it from `onNewIntent`, so background taps open their link.
 - **`universalLinkDomains`** (iOS, and Flutter on iOS; also `UniversalLinkDomains` in the
