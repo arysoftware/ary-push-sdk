@@ -217,6 +217,25 @@ class ARYPush {
         false;
   }
 
+  /// Removes this installation from a segment.
+  ///
+  /// The same request as [subscribeToSegment] — `POST /api/segments/{segmentId}/subscribers` with
+  /// the full installation record — but with `notificationsEnabled: false`, which the push API
+  /// reads as unsubscribe. Subscribing always sends `true`; neither depends on the device's
+  /// notification permission.
+  ///
+  /// Resolves to whether the server accepted it, and to `false` while offline.
+  static Future<bool> unsubscribeFromSegment(String segmentId) async {
+    if (segmentId.trim().isEmpty) {
+      throw ArgumentError.value(segmentId, 'segmentId', 'must not be blank');
+    }
+    return await _platform.invoke<bool>(
+          'unsubscribeFromSegment',
+          <String, Object?>{'segmentId': segmentId},
+        ) ??
+        false;
+  }
+
   /// Whether a segment with this name or id exists in the project.
   ///
   /// The push API exposes no per-installation membership, so this can only see the project's

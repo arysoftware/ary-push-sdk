@@ -12,7 +12,7 @@ import Foundation
 /// | Register device         | `POST /api/notifications/devices/register`     |
 /// | Device token update     | `PUT  /api/notifications/devices/update`       |
 /// | Subscribe / unsubscribe | `PUT  /api/notifications/devices/toggle`       |
-/// | Add segment subscriber  | `POST /api/segments/{segmentId}/subscribers`   |
+/// | Segment (un)subscribe   | `POST /api/segments/{segmentId}/subscribers`   |
 /// | Segment list            | `GET  /api/segments/list`                      |
 ///
 /// `projectId` and the bearer token are added to every request by the transport.
@@ -100,9 +100,30 @@ final class RestPushBackend: PushBackend {
         segmentId: String,
         installation: Installation
     ) async -> ApiResult<Void> {
-        await client.post(
+        await postSegmentSubscriber(segmentId, installation, subscribe: true)
+    }
+
+    func unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void> {
+        await postSegmentSubscriber(segmentId, installation, subscribe: false)
+    }
+
+    /// One endpoint for both directions: the server reads `notificationsEnabled` in the body as
+    /// subscribe (true) or unsubscribe (false). It is set from the request, never from the OS
+    /// permission the installation payload otherwise carries, or subscribing on a device with
+    /// notifications turned off would unsubscribe it.
+    private func postSegmentSubscriber(
+        _ segmentId: String,
+        _ installation: Installation,
+        subscribe: Bool
+    ) async -> ApiResult<Void> {
+        var body = installationPayload(installation)
+        body["notificationsEnabled"] = subscribe
+        return await client.post(
             path: "\(Path.segments)/\(Self.encodePathSegment(segmentId))/subscribers",
-            body: installationPayload(installation),
+            body: body,
             parse: ignoreBody
         )
     }

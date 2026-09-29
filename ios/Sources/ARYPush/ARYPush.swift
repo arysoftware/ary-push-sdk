@@ -263,7 +263,7 @@ public extension ARYPush {
             DispatchQueue.main.async { completion(false) }
             return
         }
-        core.subscribeToSegment(segmentId, completion: completion)
+        core.setSegmentSubscription(segmentId, subscribe: true, completion: completion)
     }
 
     /// Async form of ``subscribeToSegment(_:completion:)``.
@@ -271,6 +271,40 @@ public extension ARYPush {
     static func subscribeToSegment(_ segmentId: String) async -> Bool {
         await withCheckedContinuation { continuation in
             subscribeToSegment(segmentId) { subscribed in continuation.resume(returning: subscribed) }
+        }
+    }
+
+    /// Removes this installation from a segment.
+    ///
+    /// The same request as ``subscribeToSegment(_:completion:)`` --
+    /// `POST /api/segments/{segmentId}/subscribers` with the full installation record -- but with
+    /// `notificationsEnabled: false`, which the push API reads as unsubscribe. Subscribe always
+    /// sends `true`; neither depends on the device's notification permission.
+    ///
+    /// `completion` runs on the main queue exactly once with whether the server accepted it.
+    static func unsubscribeFromSegment(
+        _ segmentId: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard !segmentId.trimmingCharacters(in: .whitespaces).isEmpty else {
+            PushLogger.warn("unsubscribeFromSegment ignored: segmentId is blank")
+            DispatchQueue.main.async { completion(false) }
+            return
+        }
+        guard let core = core("unsubscribeFromSegment") else {
+            DispatchQueue.main.async { completion(false) }
+            return
+        }
+        core.setSegmentSubscription(segmentId, subscribe: false, completion: completion)
+    }
+
+    /// Async form of ``unsubscribeFromSegment(_:completion:)``.
+    @discardableResult
+    static func unsubscribeFromSegment(_ segmentId: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            unsubscribeFromSegment(segmentId) { unsubscribed in
+                continuation.resume(returning: unsubscribed)
+            }
         }
     }
 

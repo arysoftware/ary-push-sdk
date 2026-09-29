@@ -103,7 +103,8 @@ final class FakePushBackend: PushBackend, @unchecked Sendable {
 func makeTestInstallation(
     id: String = "install-1",
     token: String? = "token-1",
-    userId: String? = nil
+    userId: String? = nil,
+    notificationsEnabled: Bool = true
 ) -> Installation {
     Installation(
         id: id,
@@ -119,6 +120,6 @@ func makeTestInstallation(
         deviceModel: "iPhone16,1",
         locale: "en-PK",
         timezone: "Asia/Karachi",
-        notificationsEnabled: true
+        notificationsEnabled: notificationsEnabled
     )
 }

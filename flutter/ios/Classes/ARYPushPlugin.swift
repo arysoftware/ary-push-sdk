@@ -244,6 +244,19 @@ extension ARYPushPlugin {
             }
             ARYPush.subscribeToSegment(segmentId) { subscribed in result(subscribed) }
 
+        case "unsubscribeFromSegment":
+            guard let segmentId = arguments["segmentId"] as? String, !segmentId.isEmpty else {
+                result(
+                    FlutterError(
+                        code: "invalid_argument",
+                        message: "segmentId must not be blank",
+                        details: nil
+                    )
+                )
+                return
+            }
+            ARYPush.unsubscribeFromSegment(segmentId) { unsubscribed in result(unsubscribed) }
+
         case "getSubscribedTopics":
             result(Array(ARYPush.getSubscribedTopics()).sorted())
 

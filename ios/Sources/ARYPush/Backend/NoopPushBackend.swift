@@ -69,6 +69,19 @@ public final class NoopPushBackend: PushBackend {
         )
     }
 
+    public func unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void> {
+        .failure(
+            ApiError(
+                statusCode: nil,
+                code: "no_backend",
+                message: "No backend is configured, so there is nothing to unsubscribe from"
+            )
+        )
+    }
+
     public func trackEvents(
         installationId: String,
         events: [PushEvent]

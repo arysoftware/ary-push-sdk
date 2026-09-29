@@ -282,7 +282,7 @@ public object ARYPush {
             return
         }
         val core = requireCore("subscribeToSegment") ?: run { callback(false); return }
-        core.subscribeToSegmentAsync(segmentId, callback)
+        core.setSegmentSubscriptionAsync(segmentId, subscribe = true, callback = callback)
     }
 
     /** Suspending form of [subscribeToSegment]. */
@@ -290,6 +290,35 @@ public object ARYPush {
     public suspend fun subscribeToSegment(segmentId: String): Boolean =
         suspendCancellableCoroutine { continuation ->
             subscribeToSegment(segmentId) { subscribed -> continuation.resume(subscribed) }
+        }
+
+    /**
+     * Removes this installation from a segment.
+     *
+     * The same request as [subscribeToSegment] -- `POST /api/segments/{segmentId}/subscribers`
+     * with the full installation record -- but with `notificationsEnabled: false`, which the push
+     * API reads as unsubscribe. Subscribe always sends `true`; neither depends on the device's
+     * notification permission.
+     *
+     * [callback] runs on the main thread exactly once with whether the server accepted it. Like
+     * subscribing, this is a direct request, so it fails while offline.
+     */
+    @JvmStatic
+    public fun unsubscribeFromSegment(segmentId: String, callback: (Boolean) -> Unit) {
+        if (segmentId.isBlank()) {
+            PushLogger.w { "unsubscribeFromSegment ignored: segmentId is blank" }
+            callback(false)
+            return
+        }
+        val core = requireCore("unsubscribeFromSegment") ?: run { callback(false); return }
+        core.setSegmentSubscriptionAsync(segmentId, subscribe = false, callback = callback)
+    }
+
+    /** Suspending form of [unsubscribeFromSegment]. */
+    @JvmStatic
+    public suspend fun unsubscribeFromSegment(segmentId: String): Boolean =
+        suspendCancellableCoroutine { continuation ->
+            unsubscribeFromSegment(segmentId) { unsubscribed -> continuation.resume(unsubscribed) }
         }
 
     /**

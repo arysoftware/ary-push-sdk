@@ -196,6 +196,29 @@ final class RestPushBackendTests: XCTestCase {
         XCTAssertEqual(client.only.path, "/api/segments/premium%20users%2Fpk/subscribers")
     }
 
+    func testSubscribingSendsNotificationsEnabledTrueWhateverThePermission() async {
+        _ = await backend.subscribeToSegment(
+            segmentId: "seg_premium",
+            installation: makeTestInstallation(notificationsEnabled: false)
+        )
+
+        XCTAssertEqual(client.only.body?["notificationsEnabled"] as? Bool, true)
+    }
+
+    func testUnsubscribingPostsTheSameRequestWithNotificationsEnabledFalse() async {
+        _ = await backend.unsubscribeFromSegment(
+            segmentId: "seg_premium",
+            installation: makeTestInstallation(notificationsEnabled: true)
+        )
+
+        let call = client.only
+        XCTAssertEqual(call.method, "POST")
+        XCTAssertEqual(call.path, "/api/segments/seg_premium/subscribers")
+        XCTAssertEqual(call.body?["installationId"] as? String, "install-1")
+        XCTAssertEqual(call.body?["token"] as? String, "token-1")
+        XCTAssertEqual(call.body?["notificationsEnabled"] as? Bool, false)
+    }
+
     // MARK: 5. Segment list
 
     func testTheSegmentListIsReadFromTheProjectCollection() async {

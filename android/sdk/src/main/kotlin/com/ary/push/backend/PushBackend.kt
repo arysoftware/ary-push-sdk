@@ -98,6 +98,21 @@ public interface PushBackend {
         message = "This PushBackend does not implement subscribeToSegment"
     )
 
+    /**
+     * Removes this installation from a segment.
+     *
+     * The counterpart of [subscribeToSegment], with the same full [installation] record and the
+     * same default for host-supplied backends that predate it.
+     */
+    public suspend fun unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ): ApiResult<Unit> = ApiResult.Error(
+        statusCode = null,
+        code = "unsupported",
+        message = "This PushBackend does not implement unsubscribeFromSegment"
+    )
+
     /** Submits a batch of push-related events. */
     public suspend fun trackEvents(
         installationId: String,

@@ -69,6 +69,15 @@ public object NoopPushBackend : PushBackend {
             message = "No backend is configured, so there is nothing to subscribe on"
         )
 
+    override suspend fun unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ): ApiResult<Unit> = ApiResult.Error(
+        statusCode = null,
+        code = "no_backend",
+        message = "No backend is configured, so there is nothing to unsubscribe from"
+    )
+
     override suspend fun trackEvents(
         installationId: String,
         events: List<PushEvent>

@@ -61,6 +61,13 @@ public protocol PushBackend: AnyObject {
         installation: Installation
     ) async -> ApiResult<Void>
 
+    /// Removes this installation from a segment. The counterpart of `subscribeToSegment`, with the
+    /// same full installation record.
+    func unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void>
+
     /// Submits a batch of push-related events.
     func trackEvents(installationId: String, events: [PushEvent]) async -> ApiResult<Void>
 
@@ -82,6 +89,20 @@ public extension PushBackend {
                 statusCode: nil,
                 code: "unsupported",
                 message: "This PushBackend does not implement subscribeToSegment"
+            )
+        )
+    }
+
+    /// Default for a host-supplied backend written before this operation existed.
+    func unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ) async -> ApiResult<Void> {
+        .failure(
+            ApiError(
+                statusCode: nil,
+                code: "unsupported",
+                message: "This PushBackend does not implement unsubscribeFromSegment"
             )
         )
     }

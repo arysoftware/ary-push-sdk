@@ -251,6 +251,15 @@ public class ARYPushPlugin :
                 }
             }
 
+            "unsubscribeFromSegment" -> {
+                val segmentId = call.argument<String>("segmentId")
+                if (segmentId.isNullOrBlank()) {
+                    result.error("invalid_argument", "segmentId must not be blank", null)
+                } else {
+                    ARYPush.unsubscribeFromSegment(segmentId) { ok -> result.success(ok) }
+                }
+            }
+
             "getSubscribedTopics" ->
                 result.success(ARYPush.getSubscribedTopics().toList())
 

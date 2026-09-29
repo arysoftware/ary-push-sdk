@@ -452,26 +452,38 @@ internal class PushCore private constructor(
     }
 
     /**
-     * Adds this installation to a segment, answering on the main thread exactly once.
+     * Adds this installation to a segment, or removes it, answering on the main thread exactly
+     * once with whether the server accepted the change.
      *
      * Deliberately not queued: this is an explicit request whose outcome the caller wants to
      * know, and a durable queue would have to report success before the server had agreed.
      */
-    fun subscribeToSegmentAsync(segmentId: String, callback: (Boolean) -> Unit) {
+    fun setSegmentSubscriptionAsync(
+        segmentId: String,
+        subscribe: Boolean,
+        callback: (Boolean) -> Unit
+    ) {
+        val action = if (subscribe) "subscribe to" else "unsubscribe from"
         scope.launch {
-            val result = runCatching { backend.subscribeToSegment(segmentId, buildInstallation()) }
-                .getOrElse { error ->
-                    PushLogger.e(error) { "Segment subscription threw" }
-                    null
+            val result = runCatching {
+                val installation = buildInstallation()
+                if (subscribe) backend.subscribeToSegment(segmentId, installation)
+                else backend.unsubscribeFromSegment(segmentId, installation)
+            }.getOrElse { error ->
+                PushLogger.e(error) { "Could not $action segment $segmentId" }
+                null
+            }
+            val accepted = result?.isSuccess == true
+            if (accepted) {
+                PushLogger.i {
+                    if (subscribe) "Subscribed to segment $segmentId"
+                    else "Unsubscribed from segment $segmentId"
                 }
-            val subscribed = result?.isSuccess == true
-            if (!subscribed) {
-                PushLogger.w { "Could not subscribe to segment $segmentId: $result" }
             } else {
-                PushLogger.i { "Subscribed to segment $segmentId" }
+                PushLogger.w { "Could not $action segment $segmentId: $result" }
             }
             withContext(Dispatchers.Main) {
-                runCatching { callback(subscribed) }
+                runCatching { callback(accepted) }
                     .onFailure { PushLogger.e(it) { "Segment subscription callback threw" } }
             }
         }

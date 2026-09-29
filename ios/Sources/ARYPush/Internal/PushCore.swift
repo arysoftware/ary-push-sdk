@@ -674,25 +674,33 @@ extension PushCore {
         }
     }
 
-    /// Adds this installation to a segment, completing on the main actor exactly once.
+    /// Adds this installation to a segment, or removes it, completing on the main actor exactly
+    /// once with whether the server accepted the change.
     ///
     /// Deliberately not queued: this is an explicit request whose outcome the caller wants to
     /// know, and a durable queue would have to report success before the server had agreed.
-    func subscribeToSegment(_ segmentId: String, completion: @escaping (Bool) -> Void) {
+    func setSegmentSubscription(
+        _ segmentId: String,
+        subscribe: Bool,
+        completion: @escaping (Bool) -> Void
+    ) {
         let installation = buildInstallation()
         let currentBackend = backend
         Task {
-            let result = await currentBackend.subscribeToSegment(
-                segmentId: segmentId,
-                installation: installation
-            )
-            let subscribed = result.isSuccess
-            if subscribed {
-                PushLogger.info("Subscribed to segment \(segmentId)")
+            let result = subscribe
+                ? await currentBackend.subscribeToSegment(segmentId: segmentId, installation: installation)
+                : await currentBackend.unsubscribeFromSegment(segmentId: segmentId, installation: installation)
+            let accepted = result.isSuccess
+            if accepted {
+                PushLogger.info(
+                    subscribe ? "Subscribed to segment \(segmentId)" : "Unsubscribed from segment \(segmentId)"
+                )
             } else {
-                PushLogger.warn("Could not subscribe to segment \(segmentId)")
+                PushLogger.warn(
+                    "Could not \(subscribe ? "subscribe to" : "unsubscribe from") segment \(segmentId)"
+                )
             }
-            await MainActor.run { completion(subscribed) }
+            await MainActor.run { completion(accepted) }
         }
     }
 

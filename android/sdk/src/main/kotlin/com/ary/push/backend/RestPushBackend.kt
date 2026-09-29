@@ -25,7 +25,7 @@ import java.net.URLEncoder
  * | Register device            | `POST /api/notifications/devices/register`        |
  * | Device token update        | `PUT  /api/notifications/devices/update`          |
  * | Subscribe / unsubscribe    | `PUT  /api/notifications/devices/toggle`          |
- * | Add segment subscriber     | `POST /api/segments/{segmentId}/subscribers`      |
+ * | Segment (un)subscribe      | `POST /api/segments/{segmentId}/subscribers`      |
  * | Segment list               | `GET  /api/segments/list`                         |
  *
  * `projectId` and the bearer token are added to every request by the transport.
@@ -84,9 +84,26 @@ internal class RestPushBackend(
     override suspend fun subscribeToSegment(
         segmentId: String,
         installation: Installation
+    ): ApiResult<Unit> = postSegmentSubscriber(segmentId, installation, subscribe = true)
+
+    override suspend fun unsubscribeFromSegment(
+        segmentId: String,
+        installation: Installation
+    ): ApiResult<Unit> = postSegmentSubscriber(segmentId, installation, subscribe = false)
+
+    /**
+     * One endpoint for both directions: the server reads `notificationsEnabled` in the body as
+     * subscribe (true) or unsubscribe (false). It is set from the request, never from the OS
+     * permission the installation payload otherwise carries, or subscribing on a device with
+     * notifications turned off would unsubscribe it.
+     */
+    private suspend fun postSegmentSubscriber(
+        segmentId: String,
+        installation: Installation,
+        subscribe: Boolean
     ): ApiResult<Unit> = client.post(
         path = "$PATH_SEGMENTS/${encodePathSegment(segmentId)}/subscribers",
-        body = installationPayload(installation),
+        body = installationPayload(installation) + ("notificationsEnabled" to subscribe),
         parser = IgnoreBody
     )
 
