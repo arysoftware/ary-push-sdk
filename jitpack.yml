@@ -25,12 +25,19 @@ jdk:
 # not something to depend on, and a `cd` that silently did not carry would build the wrong
 # directory.
 #
-# chmod first because this repository is developed on Windows, where git records no executable
-# bit unless it is set explicitly. The bit is committed, and this makes the build survive losing
-# it again — a lost bit fails here as "./gradlew: Permission denied", exit 126, which reads like
-# a JitPack problem rather than a file mode.
+# Gradle itself, not ./gradlew. JitPack's "latest" build image cannot load the wrapper's
+# gradle-wrapper.jar ("Could not find or load main class org.gradle.wrapper.GradleWrapperMain")
+# although the jar is committed and intact, while its "default" image can, and JitPack chooses
+# the image per build. So the build installs the exact Gradle version the wrapper names, read
+# from gradle-wrapper.properties so the two never drift, through the SDKMAN JitPack already uses
+# to install the JDK, and runs it directly. That works on either image.
 install:
-  - cd android && chmod +x ./gradlew && ./gradlew --no-daemon :sdk:publishReleasePublicationToMavenLocal
+  - source "$HOME/.sdkman/bin/sdkman-init.sh"
+      && GRADLE_VERSION=$(sed -nE 's#.*gradle-([0-9.]+)-(bin|all)\.zip.*#\1#p' android/gradle/wrapper/gradle-wrapper.properties)
+      && sdk install gradle "$GRADLE_VERSION" < /dev/null
+      && sdk use gradle "$GRADLE_VERSION"
+      && cd android
+      && gradle --no-daemon :sdk:publishReleasePublicationToMavenLocal
       -ParyPush.group=com.github.arysoftware
       -ParyPush.artifact=ary-push-sdk
       -ParyPush.version=$VERSION
