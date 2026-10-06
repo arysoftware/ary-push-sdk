@@ -18,8 +18,11 @@
 # name. Publishing to a self-hosted repository instead uses com.ary:ary-push via
 # -ParyPush.group / -ParyPush.artifact. Same AAR, two names.
 
+# Java 17, the floor for Gradle 9 and AGP 9. JitPack's openjdk21 (21.0.2-open) on its "latest"
+# build image could not load classes from any jar -- first the wrapper's, then Gradle's own
+# instrumentation agent -- so the build never started there.
 jdk:
-  - openjdk21
+  - openjdk17
 
 # One command, not a `cd` followed by a build: whether each list entry runs in its own shell is
 # not something to depend on, and a `cd` that silently did not carry would build the wrong
