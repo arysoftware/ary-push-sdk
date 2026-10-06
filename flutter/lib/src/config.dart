@@ -110,6 +110,7 @@ class ARYPushConfig {
     this.backend,
     this.collectDeviceInfo = true,
     this.universalLinkDomains = const <String>[],
+    this.androidNotificationIcon,
   });
 
   /// Emit native SDK logs. Keep this off in release builds.
@@ -155,6 +156,17 @@ class ARYPushConfig {
   /// App Links are resolved against the application's own intent filters first.
   final List<String> universalLinkDomains;
 
+  /// Android only: the status-bar icon for notifications the SDK draws, as the name of a drawable
+  /// in the application, such as `'ic_stat_notification'` for
+  /// `android/app/src/main/res/drawable/ic_stat_notification.xml`.
+  ///
+  /// Android draws this icon from its alpha channel only, so it must be white on a transparent
+  /// background; a full-colour icon shows as a white square. When unset, or when no drawable has
+  /// this name, the launcher icon is used. Notifications FCM draws while the app is in the
+  /// background take their icon from the manifest instead, so declare the same drawable as
+  /// `com.google.firebase.messaging.default_notification_icon`.
+  final String? androidNotificationIcon;
+
   /// Platform channel representation.
   Map<String, dynamic> toMap() => <String, dynamic>{
         'enableLogging': enableLogging,
@@ -166,6 +178,7 @@ class ARYPushConfig {
         'displayNotifications': displayNotifications,
         'collectDeviceInfo': collectDeviceInfo,
         'universalLinkDomains': universalLinkDomains,
+        'androidNotificationIcon': androidNotificationIcon,
         'backend': backend?.toMap(),
       };
 }

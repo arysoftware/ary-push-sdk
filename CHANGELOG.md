@@ -57,6 +57,11 @@ three artifacts, so host applications only ever reason about one SDK version.
 
 ### Added
 
+- **`androidNotificationIcon`** in the Flutter `ARYPushConfig`: the name of the app's own drawable
+  to use as the Android status-bar icon for notifications the SDK draws. Flutter apps had no way
+  to set it, so they always got the launcher icon, which shows as a white square. Must be white
+  on transparent; declare the same drawable as
+  `com.google.firebase.messaging.default_notification_icon` for notifications FCM draws.
 - **`unsubscribeFromSegment(segmentId)`** on Android, iOS and Flutter. It uses the same
   `POST /api/segments/{segmentId}/subscribers` request as subscribing, with
   `notificationsEnabled: false`, which the push API reads as unsubscribe.

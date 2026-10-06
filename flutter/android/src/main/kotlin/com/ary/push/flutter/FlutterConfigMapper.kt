@@ -1,5 +1,7 @@
 package com.ary.push.flutter
 
+import android.content.Context
+import android.util.Log
 import com.ary.push.ARYPushConfig
 import com.ary.push.ForegroundDisplayPolicy
 import com.ary.push.PushBackendConfig
@@ -15,7 +17,7 @@ import com.ary.push.PushLogLevel
  */
 internal object FlutterConfigMapper {
 
-    fun from(arguments: Any?): ARYPushConfig {
+    fun from(arguments: Any?, context: Context): ARYPushConfig {
         val map = arguments as? Map<*, *> ?: return ARYPushConfig()
         val defaults = ARYPushConfig()
 
@@ -32,8 +34,24 @@ internal object FlutterConfigMapper {
             displayNotifications = map.bool("displayNotifications")
                 ?: defaults.displayNotifications,
             collectDeviceInfo = map.bool("collectDeviceInfo") ?: defaults.collectDeviceInfo,
+            smallIconResId = drawable(context, map.string("androidNotificationIcon")),
             backend = backend(map["backend"])
         )
+    }
+
+    /**
+     * Resolves the application's own drawable by name, so Dart can choose the notification icon
+     * without a resource id. Looked up in `drawable`, then `mipmap`; 0, meaning "use the launcher
+     * icon", when the name is unset or matches nothing.
+     */
+    private fun drawable(context: Context, name: String?): Int {
+        if (name.isNullOrBlank()) return 0
+        val resources = context.resources
+        val id = resources.getIdentifier(name, "drawable", context.packageName)
+            .takeIf { it != 0 }
+            ?: resources.getIdentifier(name, "mipmap", context.packageName)
+        if (id == 0) Log.w("ARYPush", "androidNotificationIcon '$name' not found; using the launcher icon")
+        return id
     }
 
     private fun backend(value: Any?): PushBackendConfig? {

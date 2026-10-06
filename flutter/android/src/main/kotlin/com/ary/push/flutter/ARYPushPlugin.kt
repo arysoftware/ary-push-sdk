@@ -168,7 +168,7 @@ public class ARYPushPlugin :
             "initialize" -> {
                 ARYPush.initialize(
                     applicationContext,
-                    FlutterConfigMapper.from(call.arguments)
+                    FlutterConfigMapper.from(call.arguments, applicationContext)
                 )
                 result.success(null)
             }
