@@ -1,6 +1,6 @@
 // Flutter plugin module for the ARY Push SDK.
 //
-// A bridge, not an implementation: it depends on the Android SDK artifact and forwards to it.
+// A bridge, not an implementation: it forwards to the native Android SDK, which it compiles in.
 //
 // Written in Groovy, and applying its plugins with `apply plugin:` rather than a `plugins {}`
 // block, on purpose. A versionless `plugins { id("com.android.library") }` only resolves when
@@ -44,79 +44,70 @@ version = '1.1.0'
 
 // ---------------------------------------------------------------- where the SDK comes from
 
-// No credentials, anywhere. The SDK repository is public and JitPack builds public repositories
-// for free, so an application that adds this plugin needs no token, no account, and no
-// configuration to get the native SDK. That is the whole point of this section being short.
+// The native SDK is compiled into this plugin from source, the same way the iOS pod vendors the
+// Swift SDK. `flutter pub get` checks out the whole repository, so ../../android/sdk is the
+// Android SDK from the very same commit as this bridge, in the pub cache and in a working tree
+// alike: the two halves cannot disagree, and no artifact has to be built or downloaded.
+//
+// Fetching a prebuilt artifact from JitPack instead failed in two ways: the artifact could be
+// older than the plugin (an unresolved reference to anything the plugin newly called), and
+// JitPack's own build image could not run Gradle at all, which left every new commit without an
+// Android SDK.
+//
+// A prebuilt artifact is still available, and wins whenever it is asked for explicitly, from the
+// application's android/gradle.properties:
+//
+//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:<tag or commit>
+//     arySdkCoordinate=com.ary:ary-push:1.1.0
+//
+// A local SDK module included by the host build (`:ary-push-sdk`) wins over both.
+def localSdkProject = rootProject.findProject(':ary-push-sdk')
+def arySdkCoordinate = project.findProperty('arySdkCoordinate')
+def arySdkSource = file('../../android/sdk')
+def bundleSdkSource = localSdkProject == null && arySdkCoordinate == null &&
+    new File(arySdkSource, 'src/main/kotlin').isDirectory()
+
+// The version the SDK reports about itself: registrations and the X-SDK-Version header.
+def arySdkVersion = {
+    def properties = new Properties()
+    def file = file('../../android/gradle.properties')
+    if (file.isFile()) file.withInputStream { properties.load(it) }
+    properties.getProperty('aryPush.sdkVersion', version)
+}()
+
+if (localSdkProject != null) {
+    logger.lifecycle("ARY Push SDK: native SDK from ${localSdkProject.path}")
+} else if (bundleSdkSource) {
+    logger.lifecycle("ARY Push SDK: native SDK ${arySdkVersion} compiled from ${arySdkSource}")
+} else {
+    arySdkCoordinate = arySdkCoordinate ?: 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT'
+    logger.lifecycle("ARY Push SDK: native SDK ${arySdkCoordinate}")
+}
+
+// Only an artifact needs a repository. Credentials are optional: JitPack serves this public
+// repository without any.
 def aryMavenUrl = project.findProperty('aryMavenUrl') ?: System.getenv('ARY_MAVEN_URL')
 def aryMavenUser = project.findProperty('aryMavenUser') ?: System.getenv('ARY_MAVEN_USER')
 def aryMavenPassword = project.findProperty('aryMavenPassword') ?: System.getenv('ARY_MAVEN_PASSWORD')
-
-// The SDK published by scripts/dev_publish_local.sh.
-//
-// The relative form is correct when this plugin is consumed by path, from the working tree. It
-// is wrong when the plugin came from the pub cache, because the cache holds a clone rather than
-// the tree that was built -- so an absolute path can be given instead, from android/gradle.properties:
-//
-//     aryPushLocalRepo=D:/Underdev/Push Client/android/build/local-maven
-def aryPushLocalRepo = file('../../android/build/local-maven')
-if (project.hasProperty('aryPushLocalRepo')) {
-    aryPushLocalRepo = file(project.property('aryPushLocalRepo'))
-}
-
-// A local SDK module, when the host build includes one. Preferred over any artifact.
-def localSdkProject = rootProject.findProject(':ary-push-sdk')
-
-// JitPack's coordinate: it serves everything under com.github.<owner>.
-//
-// By default the native SDK is built from the very commit this plugin was checked out at, so the
-// two halves can never disagree. Pub checks a git dependency out into a directory named after the
-// commit it resolved -- `<pub-cache>/git/ary-push-sdk-<40-hex sha>/flutter` -- and JitPack builds
-// any commit on request. `flutter pub upgrade ary_push` therefore moves both halves together, with
-// nothing to edit in the application.
-//
-// Tracking `main-SNAPSHOT` instead let them drift: Gradle caches a changing module for 24 hours,
-// so a plugin that had moved on compiled against an SDK that had not, and failed with an
-// unresolved reference to whatever the new plugin called.
-//
-// Outside the pub cache -- a path dependency, or this repository's own examples -- there is no
-// commit to read, and `main-SNAPSHOT` is used, with that same 24-hour cache.
-//
-// An explicit pin in android/gradle.properties still wins. Any of these works:
-//
-//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:v1.1.0
-//     arySdkCoordinate=com.github.arysoftware:ary-push-sdk:<commit-hash>
-//     arySdkCoordinate=com.ary:ary-push:1.1.0
-def pluginCommit = {
-    def matcher = (projectDir.parentFile.parentFile.name =~ /^ary-push-sdk-([0-9a-f]{40})$/)
-    matcher.matches() ? matcher.group(1) : null
-}()
-def arySdkCoordinate = project.findProperty('arySdkCoordinate') ?:
-    (pluginCommit ? "com.github.arysoftware:ary-push-sdk:${pluginCommit.take(10)}"
-                  : 'com.github.arysoftware:ary-push-sdk:main-SNAPSHOT')
-logger.lifecycle("ARY Push SDK: native SDK ${localSdkProject ? 'from ' + localSdkProject.path : arySdkCoordinate}")
 
 repositories {
     google()
     mavenCentral()
 }
 
-// Declared on every project in the build, not just this one.
-//
-// Gradle resolves a dependency graph using the repositories of the project that owns the
-// resolution -- the application module -- not those of the module that declared the dependency.
-// A repository declared only here would never be consulted for the SDK coordinate, and the
-// failure is an opaque "Could not find" that lists every repository except the one holding it.
-// Reaching into rootProject is the only way a plugin can carry its own native dependency, and
-// it is skipped entirely when a local SDK module is present.
-if (localSdkProject == null) {
+// Declared on every project in the build, not just this one: Gradle resolves the dependency
+// graph with the repositories of the project that owns the resolution -- the application module
+// -- so a repository declared only here would never be consulted for the SDK coordinate.
+if (!bundleSdkSource && localSdkProject == null) {
+    def aryPushLocalRepo = project.hasProperty('aryPushLocalRepo')
+        ? file(project.property('aryPushLocalRepo'))
+        : file('../../android/build/local-maven')
     rootProject.allprojects { proj ->
         proj.repositories {
-            // JitPack builds the SDK from its git tag, on demand, with no credentials.
             maven {
                 name = 'aryJitpack'
                 url = 'https://jitpack.io'
             }
-
             if (aryMavenUrl) {
                 maven {
                     url = aryMavenUrl
@@ -126,7 +117,6 @@ if (localSdkProject == null) {
                     }
                 }
             }
-
             if (aryPushLocalRepo.isDirectory()) {
                 maven { url = aryPushLocalRepo }
             }
@@ -137,7 +127,10 @@ if (localSdkProject == null) {
 // ---------------------------------------------------------------- module
 
 android {
-    namespace 'com.ary.push.flutter'
+    // The SDK's source refers to com.ary.push.R and com.ary.push.BuildConfig, which a module
+    // generates from its namespace, so a module compiling that source takes the SDK's namespace.
+    // The plugin's own classes keep their package; nothing of the plugin is generated.
+    namespace bundleSdkSource ? 'com.ary.push' : 'com.ary.push.flutter'
     compileSdk 36
 
     compileOptions {
@@ -147,12 +140,29 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
+        if (bundleSdkSource) {
+            main.java.srcDirs += new File(arySdkSource, 'src/main/kotlin')
+            main.res.srcDirs += new File(arySdkSource, 'src/main/res')
+            // The SDK's manifest declares its messaging service, broadcast receiver, click
+            // trampoline, permission host, startup provider and permissions. This module's own
+            // manifest is empty, so the SDK's takes its place rather than being duplicated.
+            main.manifest.srcFile new File(arySdkSource, 'src/main/AndroidManifest.xml')
+        }
     }
 
     defaultConfig {
         // Flutter's own floor. The native SDK supports API 21, so a native Android application
         // consuming com.ary:ary-push directly is not constrained by this number.
         minSdk 24
+
+        if (bundleSdkSource) {
+            buildConfigField 'String', 'SDK_VERSION', "\"${arySdkVersion}\""
+            consumerProguardFiles new File(arySdkSource, 'consumer-rules.pro')
+        }
+    }
+
+    buildFeatures {
+        buildConfig bundleSdkSource
     }
 }
 
@@ -173,8 +183,16 @@ if (aryKotlinExtension != null) {
 
 dependencies {
     if (localSdkProject != null) {
-        logger.info("ARY Push SDK: building against the local SDK at ${localSdkProject.projectDir}")
         implementation localSdkProject
+    } else if (bundleSdkSource) {
+        // The SDK's own dependencies, identical to android/sdk/build.gradle.kts. Change them
+        // together.
+        implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+        implementation 'androidx.core:core-ktx:1.13.1'
+        implementation 'androidx.annotation:annotation:1.8.0'
+        implementation 'androidx.startup:startup-runtime:1.1.1'
+        implementation 'com.google.firebase:firebase-messaging:24.0.0'
+        implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     } else {
         implementation arySdkCoordinate
     }
