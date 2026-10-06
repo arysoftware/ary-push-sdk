@@ -94,7 +94,7 @@ jobs:
         working-directory: flutter
         run: |
           flutter pub get
-          flutter analyze
+          flutter analyze lib test
           flutter test
 
       # Consumed as a private git dependency pinned to this tag, so again there is no artifact.

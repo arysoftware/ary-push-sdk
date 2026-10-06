@@ -37,9 +37,12 @@ jobs:
         working-directory: flutter
         run: dart format --output=none --set-exit-if-changed lib test
 
+      # The plugin's own code only. A bare `flutter analyze` here also walks the examples, whose
+      # dependencies this step has not resolved (firebase_core in example-firebase), and fails on
+      # missing packages; the examples are analyzed, with their dependencies, two steps below.
       - name: Analyze
         working-directory: flutter
-        run: flutter analyze
+        run: flutter analyze lib test
 
       - name: Test
         working-directory: flutter
