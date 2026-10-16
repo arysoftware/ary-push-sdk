@@ -62,3 +62,9 @@ docs/
 README.md
 CHANGELOG.md
 postman/
+android/sample-basic/
+android/sample-existing-firebase/
+flutter/example/
+flutter/example-firebase/
+ios/sample-basic/
+ios/sample-existing-notification-delegate/
