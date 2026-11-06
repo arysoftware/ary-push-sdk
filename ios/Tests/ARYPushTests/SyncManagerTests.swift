@@ -7,6 +7,8 @@ final class SyncManagerTests: XCTestCase {
     private var queue: PendingOperationQueue!
     private var backend: FakePushBackend!
     private var online = true
+    /// Backend identity the manager sees; `nil` models Flutter's configuration-less early start.
+    private var environment: String? = "https://push.example.com|project-a|wallet_ios"
 
     override func setUp() {
         super.setUp()
@@ -14,6 +16,7 @@ final class SyncManagerTests: XCTestCase {
         queue = PendingOperationQueue(storage: storage)
         backend = FakePushBackend()
         online = true
+        environment = "https://push.example.com|project-a|wallet_ios"
     }
 
     private func makeSync(
@@ -25,7 +28,8 @@ final class SyncManagerTests: XCTestCase {
             isOnline: { [weak self] in self?.online ?? true },
             retryManager: RetryManager(config: retry, randomProvider: { 0 }),
             backendProvider: { [backend] in backend! },
-            installationProvider: { makeTestInstallation() }
+            installationProvider: { makeTestInstallation() },
+            environmentProvider: { [weak self] in self?.environment }
         )
     }
 
@@ -155,5 +159,89 @@ final class SyncManagerTests: XCTestCase {
 
         XCTAssertTrue(queue.isEmpty)
         XCTAssertNil(storage.string(StorageManager.Keys.registrationHash))
+    }
+
+    // MARK: - Backend environment
+
+    func testNothingIsRegisteredOrDrainedWhileNoBackendIsConfigured() {
+        environment = nil
+        let sync = makeSync()
+
+        sync.registerInstallationIfChanged()
+        sync.enqueueLogout()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertTrue(backend.calls.isEmpty)
+        XCTAssertNil(storage.string(StorageManager.Keys.registrationHash))
+        XCTAssertEqual(queue.count, 1)
+    }
+
+    func testWorkQueuedBeforeTheBackendArrivesIsDeliveredOnceItDoes() {
+        environment = nil
+        let sync = makeSync()
+        sync.enqueueLogout()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+        environment = "https://push.example.com|project-a|wallet_ios"
+        sync.registerInstallationIfChanged()
+
+        waitForDrain { self.queue.isEmpty }
+        XCTAssertEqual(backend.calls, ["register", "logout"])
+    }
+
+    func testAnEarlyStartFollowedByTheSameConfigurationRegistersOnlyOnTheFirstLaunch() {
+        let configured = "https://push.example.com|project-a|wallet_ios"
+
+        // Every launch: plugin start without a backend, then Dart supplies the same configuration.
+        for _ in 0..<3 {
+            let sync = makeSync()
+            environment = nil
+            sync.registerInstallationIfChanged()
+
+            environment = configured
+            sync.registerInstallationIfChanged()
+            waitForDrain { self.queue.isEmpty }
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(backend.count(of: "register"), 1)
+    }
+
+    func testMovingToAnotherServerOrProjectRegistersOnce() {
+        let sync = makeSync()
+        sync.registerInstallationIfChanged()
+        waitForDrain { self.queue.isEmpty }
+
+        environment = "https://push.example.com|project-b|wallet_ios"
+        sync.registerInstallationIfChanged()
+        waitForDrain { self.queue.isEmpty }
+        sync.registerInstallationIfChanged()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(backend.count(of: "register"), 2)
+    }
+
+    func testAQueuedRegistrationIsSkippedWhenADependentOperationAlreadyRegistered() {
+        let sync = makeSync()
+        // Start-up race: the registration is queued, but a dependent operation registers first.
+        sync.enqueueLogout()
+        waitForDrain { self.queue.isEmpty }
+        sync.enqueue(PendingOperation(type: .registerInstallation))
+        waitForDrain { self.queue.isEmpty }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(backend.count(of: "register"), 1)
+    }
+
+    func testAForcedRegistrationIsSentEvenWhenNothingChanged() {
+        let sync = makeSync()
+        sync.registerInstallationIfChanged()
+        waitForDrain { self.queue.isEmpty }
+
+        sync.registerInstallationIfChanged(force: true)
+        waitForDrain { self.queue.isEmpty }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(backend.count(of: "register"), 2)
     }
 }

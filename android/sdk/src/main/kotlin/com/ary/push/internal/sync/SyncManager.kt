@@ -41,7 +41,20 @@ internal class SyncManager(
     private val isOnline: () -> Boolean,
     private val retryManager: RetryManager,
     private val backendProvider: () -> PushBackend,
-    private val installationProvider: () -> Installation?
+    private val installationProvider: () -> Installation?,
+    /**
+     * Identity of the backend the SDK currently talks to: base URL, project and application, or
+     * `null` while no backend is configured.
+     *
+     * A Flutter application starts the SDK before Dart has supplied any configuration, so for a
+     * moment the only backend is [com.ary.push.backend.NoopPushBackend]. Nothing may be registered
+     * or drained then: the no-op backend answers success to everything, which would record a
+     * registration that never happened and silently discard queued work.
+     *
+     * The identity is also part of the registration hash, so moving to another server or project
+     * registers once on its own and reconfiguring into the same environment does not.
+     */
+    private val environmentProvider: () -> String? = { DEFAULT_ENVIRONMENT }
 ) {
 
     private val drainMutex = Mutex()
@@ -122,13 +135,22 @@ internal class SyncManager(
      */
     fun registerInstallationIfChanged(force: Boolean = false) {
         val installation = installationProvider() ?: return
+        if (environmentProvider() == null) {
+            PushLogger.d { "No backend configured yet; registration deferred" }
+            return
+        }
         val hash = registrationHash(installation)
         if (!force && storage.getString(StorageManager.KEY_REGISTRATION_HASH) == hash) {
             PushLogger.d { "Installation registration unchanged; skipping request" }
             requestSync()
             return
         }
-        enqueue(PendingOperation(type = OperationType.REGISTER_INSTALLATION))
+        enqueue(
+            PendingOperation(
+                type = OperationType.REGISTER_INSTALLATION,
+                payload = if (force) mapOf(PendingOperation.KEY_FORCE to "true") else emptyMap()
+            )
+        )
     }
 
     /** Adds an operation and asks the queue to drain. */
@@ -140,6 +162,8 @@ internal class SyncManager(
 
     /** Drains the queue if it is not already draining. Safe to call from anywhere, at any time. */
     fun requestSync() {
+        // Queued operations wait for a real backend instead of being "delivered" to the no-op one.
+        if (environmentProvider() == null) return
         if (queue.isEmpty()) return
         if (drainJob?.isActive == true) return
         drainJob = scope.launch { drain() }
@@ -210,7 +234,17 @@ internal class SyncManager(
 
         return try {
             when (operation.type) {
-                OperationType.REGISTER_INSTALLATION ->
+                OperationType.REGISTER_INSTALLATION -> {
+                    // Re-checked here, not only when queued: a dependent operation that drained
+                    // first may already have registered this exact installation (requireRegistered),
+                    // and sending it again would be a duplicate write.
+                    val forced = operation.payload[PendingOperation.KEY_FORCE].toBoolean()
+                    if (!forced &&
+                        storage.getString(StorageManager.KEY_REGISTRATION_HASH) == registrationHash(installation)
+                    ) {
+                        PushLogger.d { "Installation already registered as is; skipping queued registration" }
+                        return ApiResult.Success(Unit, 200)
+                    }
                     backend.registerInstallation(installation).also { result ->
                         if (result.isSuccess) {
                             storage.putString(
@@ -219,6 +253,7 @@ internal class SyncManager(
                             )
                         }
                     }
+                }
 
                 OperationType.UPDATE_TOKEN -> {
                     val token = operation.payload[PendingOperation.KEY_TOKEN]
@@ -340,6 +375,7 @@ internal class SyncManager(
      * `receivedAt` timestamp does not.
      */
     private fun registrationHash(installation: Installation): String = listOf(
+        environmentProvider().orEmpty(),
         installation.id,
         installation.applicationId.orEmpty(),
         installation.provider.wireValue,
@@ -406,5 +442,10 @@ internal class SyncManager(
     fun reset() {
         queue.clear()
         storage.remove(StorageManager.KEY_REGISTRATION_HASH)
+    }
+
+    internal companion object {
+        /** Environment used when the caller does not distinguish backends. */
+        const val DEFAULT_ENVIRONMENT = "default"
     }
 }

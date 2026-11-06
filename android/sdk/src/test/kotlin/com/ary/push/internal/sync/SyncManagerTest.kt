@@ -28,6 +28,9 @@ class SyncManagerTest {
 
     private var online = true
 
+    /** Backend identity the manager sees; `null` models Flutter's configuration-less early start. */
+    private var environment: String? = "https://push.example.com|project-a|wallet_android"
+
     private val installation = Installation(
         id = "install-1",
         applicationId = "wallet_android",
@@ -52,6 +55,7 @@ class SyncManagerTest {
         queue = OperationQueue(storage)
         backend = FakePushBackend()
         online = true
+        environment = "https://push.example.com|project-a|wallet_android"
     }
 
     private fun sync(
@@ -64,12 +68,13 @@ class SyncManagerTest {
         isOnline = { online },
         retryManager = RetryManager(retry),
         backendProvider = { backend },
-        installationProvider = { installation }
+        installationProvider = { installation },
+        environmentProvider = { environment }
     )
 
     @Test
     fun `a queued operation reaches the backend and leaves the queue`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueueLogout()
         advanceUntilIdle()
@@ -81,7 +86,7 @@ class SyncManagerTest {
     @Test
     fun `nothing is sent while offline and nothing is lost`() = runTest {
         online = false
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueueIdentify("USER_1")
         advanceUntilIdle()
@@ -93,7 +98,7 @@ class SyncManagerTest {
     @Test
     fun `work queued offline drains once the network returns`() = runTest {
         online = false
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
         manager.enqueueIdentify("USER_1")
         advanceUntilIdle()
 
@@ -107,7 +112,7 @@ class SyncManagerTest {
 
     @Test
     fun `dependent operations register the installation first`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueueIdentify("USER_1")
         advanceUntilIdle()
@@ -118,7 +123,7 @@ class SyncManagerTest {
 
     @Test
     fun `an unchanged registration is not resent on every launch`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         repeat(3) {
             manager.registerInstallationIfChanged()
@@ -130,7 +135,7 @@ class SyncManagerTest {
 
     @Test
     fun `forcing re-registration overrides the unchanged check`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
         manager.registerInstallationIfChanged()
         advanceUntilIdle()
 
@@ -146,7 +151,7 @@ class SyncManagerTest {
             ApiResult.Error(statusCode = 503),
             ApiResult.Success(Unit, statusCode = 200)
         )
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueue(PendingOperation(type = OperationType.REGISTER_INSTALLATION))
         advanceUntilIdle()
@@ -158,7 +163,7 @@ class SyncManagerTest {
     @Test
     fun `a permanent failure is dropped instead of retried forever`() = runTest {
         backend.default = ApiResult.Error(statusCode = 422, code = "invalid_installation")
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueue(PendingOperation(type = OperationType.REGISTER_INSTALLATION))
         advanceUntilIdle()
@@ -172,7 +177,7 @@ class SyncManagerTest {
     fun `an operation that exhausts its attempts is dropped`() = runTest {
         backend.default = ApiResult.NetworkError(IOException("no route to host"))
         val manager = sync(
-            backgroundScope,
+            this,
             RetryConfig(maxAttempts = 3, initialBackoffMs = 10, jitterFactor = 0.0)
         )
 
@@ -187,7 +192,7 @@ class SyncManagerTest {
     fun `a backend that throws is treated as a transport failure, not a crash`() = runTest {
         backend.throwOnCall = IllegalStateException("host-supplied backend is broken")
         val manager = sync(
-            backgroundScope,
+            this,
             RetryConfig(maxAttempts = 2, initialBackoffMs = 10, jitterFactor = 0.0)
         )
 
@@ -200,7 +205,7 @@ class SyncManagerTest {
 
     @Test
     fun `a burst of tag writes becomes a single request`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueueTagUpdate(mapOf("a" to "1"))
         manager.enqueueTagUpdate(mapOf("b" to "2"))
@@ -216,7 +221,7 @@ class SyncManagerTest {
 
     @Test
     fun `events are queued and delivered as a batch`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
 
         manager.enqueueEvent(com.ary.push.model.PushEvent("notification_opened"))
         advanceUntilIdle()
@@ -227,7 +232,7 @@ class SyncManagerTest {
 
     @Test
     fun `reset clears deferred work and the registration marker`() = runTest {
-        val manager = sync(backgroundScope)
+        val manager = sync(this)
         manager.registerInstallationIfChanged()
         advanceUntilIdle()
 
@@ -235,5 +240,95 @@ class SyncManagerTest {
 
         assertTrue(queue.isEmpty())
         assertNull(storage.getString(StorageManager.KEY_REGISTRATION_HASH))
+    }
+
+    // ------------------------------------------------------------------ backend environment
+
+    @Test
+    fun `nothing is registered or drained while no backend is configured`() = runTest {
+        environment = null
+        val manager = sync(this)
+
+        manager.registerInstallationIfChanged()
+        manager.enqueueLogout()
+        advanceUntilIdle()
+
+        assertTrue(backend.calls.isEmpty())
+        assertNull(storage.getString(StorageManager.KEY_REGISTRATION_HASH))
+        assertEquals(1, queue.size())
+    }
+
+    @Test
+    fun `work queued before the backend arrives is delivered once it does`() = runTest {
+        environment = null
+        val manager = sync(this)
+        manager.enqueueLogout()
+        advanceUntilIdle()
+
+        environment = "https://push.example.com|project-a|wallet_android"
+        manager.registerInstallationIfChanged()
+        advanceUntilIdle()
+
+        assertEquals(listOf("register", "logout"), backend.calls)
+        assertTrue(queue.isEmpty())
+    }
+
+    @Test
+    fun `an early start followed by the same configuration registers only on the first launch`() = runTest {
+        val configured = "https://push.example.com|project-a|wallet_android"
+
+        // Every launch: plugin start without a backend, then Dart supplies the same configuration.
+        repeat(3) {
+            val manager = sync(this)
+            environment = null
+            manager.registerInstallationIfChanged()
+            advanceUntilIdle()
+
+            environment = configured
+            manager.registerInstallationIfChanged()
+            advanceUntilIdle()
+        }
+
+        assertEquals(1, backend.countOf("register"))
+    }
+
+    @Test
+    fun `moving to another server or project registers once`() = runTest {
+        val manager = sync(this)
+        manager.registerInstallationIfChanged()
+        advanceUntilIdle()
+
+        environment = "https://push.example.com|project-b|wallet_android"
+        manager.registerInstallationIfChanged()
+        advanceUntilIdle()
+        manager.registerInstallationIfChanged()
+        advanceUntilIdle()
+
+        assertEquals(2, backend.countOf("register"))
+    }
+
+    @Test
+    fun `a queued registration is skipped when a dependent operation already registered`() = runTest {
+        val manager = sync(this)
+        // Start-up race: the registration is queued, but a dependent operation registers first.
+        manager.enqueueLogout()
+        advanceUntilIdle()
+        manager.enqueue(PendingOperation(type = OperationType.REGISTER_INSTALLATION))
+        advanceUntilIdle()
+
+        assertEquals(1, backend.countOf("register"))
+        assertTrue(queue.isEmpty())
+    }
+
+    @Test
+    fun `a forced registration is sent even when nothing changed`() = runTest {
+        val manager = sync(this)
+        manager.registerInstallationIfChanged()
+        advanceUntilIdle()
+
+        manager.registerInstallationIfChanged(force = true)
+        advanceUntilIdle()
+
+        assertEquals(2, backend.countOf("register"))
     }
 }

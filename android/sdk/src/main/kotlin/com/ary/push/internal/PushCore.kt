@@ -106,7 +106,8 @@ internal class PushCore private constructor(
         isOnline = { connectivity.isOnline },
         retryManager = RetryManager(initialConfig.retry),
         backendProvider = { backend },
-        installationProvider = { buildInstallation() }
+        installationProvider = { buildInstallation() },
+        environmentProvider = { environmentKey() }
     )
 
     val tokenManager: TokenManager = TokenManager(storage) { token, provider ->
@@ -204,11 +205,31 @@ internal class PushCore private constructor(
             previous.authProvider !== newConfig.authProvider
         ) {
             applyBackend(newConfig)
-            // A new environment means the backend has never seen this installation.
-            syncManager.registerInstallationIfChanged(force = true)
+            // Not forced: the environment is part of the registration hash, so a new server or
+            // project registers on its own, while reconfiguring into the environment this
+            // installation is already registered with -- what a Flutter application does on
+            // every launch -- sends nothing.
+            syncManager.registerInstallationIfChanged()
         }
 
         syncManager.requestSync()
+    }
+
+    /**
+     * Identity of the backend in use, or `null` when there is none to synchronise with.
+     *
+     * Only what decides where the installation is stored counts: base URL, project and
+     * application. The bearer token is deliberately excluded, so rotating it re-registers
+     * nothing.
+     */
+    private fun environmentKey(): String? {
+        if (backend === NoopPushBackend) return null
+        val backendConfig = config.backend ?: return CUSTOM_BACKEND_ENVIRONMENT
+        return listOf(
+            backendConfig.normalizedBaseUrl,
+            backendConfig.projectId.orEmpty(),
+            backendConfig.applicationId.orEmpty()
+        ).joinToString("|")
     }
 
     /**
@@ -533,6 +554,9 @@ internal class PushCore private constructor(
 
     internal companion object {
         private const val PLATFORM = "android"
+
+        /** Environment of a host-supplied [PushBackend], which has no URL or project to name. */
+        private const val CUSTOM_BACKEND_ENVIRONMENT = "custom"
 
         @Volatile
         private var core: PushCore? = null

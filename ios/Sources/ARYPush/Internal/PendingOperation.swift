@@ -51,6 +51,8 @@ struct PendingOperation: Equatable {
         static let topics = "topics"
         static let enabled = "enabled"
         static let events = "events"
+        /// On a registration: send it even when the installation is already registered as is.
+        static let force = "force"
     }
 
     let id: String

@@ -91,7 +91,8 @@ final class PushCore {
             isOnline: { [connectivity] in connectivity.isOnline },
             retryManager: RetryManager(config: config.retry),
             backendProvider: { [weak self] in self?.backend ?? NoopPushBackend.shared },
-            installationProvider: { [weak self] in self?.buildInstallation() }
+            installationProvider: { [weak self] in self?.buildInstallation() },
+            environmentProvider: { [weak self] in self?.environmentKey }
         )
         requestSync = { [weak self] in self?.syncManager.requestSync() }
 
@@ -263,16 +264,40 @@ extension PushCore {
 
         let backendChanged = previous.backend?.normalizedBaseURL != newConfig.backend?.normalizedBaseURL
             || previous.backend?.applicationId != newConfig.backend?.applicationId
+            || previous.backend?.projectId != newConfig.backend?.projectId
             || previous.customBackend !== newConfig.customBackend
             || previous.authProvider !== newConfig.authProvider
 
         if backendChanged {
             applyBackend(newConfig)
-            // A new environment means the backend has never seen this installation.
-            syncManager.registerInstallationIfChanged(force: true)
+            // Not forced: the environment is part of the registration hash, so a new server or
+            // project registers on its own, while reconfiguring into the environment this
+            // installation is already registered with -- what a Flutter application does on
+            // every launch -- sends nothing.
+            syncManager.registerInstallationIfChanged()
         }
         syncManager.requestSync()
     }
+
+    /// Identity of the backend in use, or `nil` when there is none to synchronise with.
+    ///
+    /// Only what decides where the installation is stored counts: base URL, project and
+    /// application. The bearer token is deliberately excluded, so rotating it re-registers nothing.
+    private var environmentKey: String? {
+        if backend === NoopPushBackend.shared { return nil }
+        configLock.lock()
+        let backendConfig = config.backend
+        configLock.unlock()
+        guard let backendConfig else { return Self.customBackendEnvironment }
+        return [
+            backendConfig.normalizedBaseURL,
+            backendConfig.projectId ?? "",
+            backendConfig.applicationId ?? ""
+        ].joined(separator: "|")
+    }
+
+    /// Environment of a host-supplied ``PushBackend``, which has no URL or project to name.
+    private static let customBackendEnvironment = "custom"
 
     /// Chooses the backend for a configuration.
     ///

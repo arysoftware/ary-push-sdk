@@ -46,6 +46,9 @@ internal data class PendingOperation(
         const val KEY_ENABLED = "enabled"
         const val KEY_EVENTS = "events"
 
+        /** On a registration: send it even when the installation is already registered as is. */
+        const val KEY_FORCE = "force"
+
         /** Returns null for entries that cannot be understood, so one bad row cannot wedge the queue. */
         fun fromJson(json: JSONObject): PendingOperation? {
             val typeName = json.optString(FIELD_TYPE).takeIf { it.isNotEmpty() } ?: return null

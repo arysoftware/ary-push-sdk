@@ -23,6 +23,15 @@ final class SyncManager {
     private let retryManager: RetryManager
     private let backendProvider: () -> PushBackend
     private let installationProvider: () -> Installation?
+    /// Identity of the backend in use -- base URL, project and application -- or `nil` while no
+    /// backend is configured.
+    ///
+    /// The Flutter plugin starts the SDK before Dart supplies any configuration, so for a moment
+    /// the only backend is ``NoopPushBackend``. Nothing may be registered or drained then: the
+    /// no-op backend answers success to everything, which would record a registration that never
+    /// happened and silently discard queued work. The identity is also part of the registration
+    /// hash, so a new server or project registers once on its own.
+    private let environmentProvider: () -> String?
 
     private let lock = NSLock()
     private var drainTask: Task<Void, Never>?
@@ -33,7 +42,8 @@ final class SyncManager {
         isOnline: @escaping () -> Bool,
         retryManager: RetryManager,
         backendProvider: @escaping () -> PushBackend,
-        installationProvider: @escaping () -> Installation?
+        installationProvider: @escaping () -> Installation?,
+        environmentProvider: @escaping () -> String? = { SyncManager.defaultEnvironment }
     ) {
         self.queue = queue
         self.storage = storage
@@ -41,7 +51,11 @@ final class SyncManager {
         self.retryManager = retryManager
         self.backendProvider = backendProvider
         self.installationProvider = installationProvider
+        self.environmentProvider = environmentProvider
     }
+
+    /// Environment used when the caller does not distinguish backends.
+    static let defaultEnvironment = "default"
 
     // MARK: - Entry points
 
@@ -123,13 +137,22 @@ final class SyncManager {
     /// information gain.
     func registerInstallationIfChanged(force: Bool = false) {
         guard let installation = installationProvider() else { return }
+        guard environmentProvider() != nil else {
+            PushLogger.debug("No backend configured yet; registration deferred")
+            return
+        }
         let hash = registrationHash(installation)
         if !force, storage.string(StorageManager.Keys.registrationHash) == hash {
             PushLogger.debug("Installation registration unchanged; skipping request")
             requestSync()
             return
         }
-        enqueue(PendingOperation(type: .registerInstallation))
+        enqueue(
+            PendingOperation(
+                type: .registerInstallation,
+                payload: force ? [PendingOperation.Key.force: "true"] : [:]
+            )
+        )
     }
 
     /// Adds an operation and asks the queue to drain.
@@ -141,6 +164,8 @@ final class SyncManager {
 
     /// Drains the queue if it is not already draining. Safe to call from anywhere, at any time.
     func requestSync() {
+        // Queued operations wait for a real backend instead of being "delivered" to the no-op one.
+        guard environmentProvider() != nil else { return }
         guard !queue.isEmpty else { return }
 
         lock.lock()
@@ -245,6 +270,15 @@ private extension SyncManager {
 
         switch operation.type {
         case .registerInstallation:
+            // Re-checked here, not only when queued: a dependent operation that drained first may
+            // already have registered this exact installation, and sending it again would be a
+            // duplicate write.
+            let forced = operation.payload[PendingOperation.Key.force] == "true"
+            if !forced,
+               storage.string(StorageManager.Keys.registrationHash) == registrationHash(installation) {
+                PushLogger.debug("Installation already registered as is; skipping queued registration")
+                return .success((), statusCode: 200)
+            }
             let result = await backend.registerInstallation(installation)
             if result.isSuccess {
                 storage.set(StorageManager.Keys.registrationHash, registrationHash(installation))
@@ -369,6 +403,7 @@ private extension SyncManager {
     /// timestamp does not.
     func registrationHash(_ installation: Installation) -> String {
         let parts: [String] = [
+            environmentProvider() ?? "",
             installation.id,
             installation.applicationId ?? "",
             installation.provider.wireValue,
