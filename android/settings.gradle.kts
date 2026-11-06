@@ -46,5 +46,8 @@ dependencyResolutionManagement {
 rootProject.name = "ary-push-android"
 
 include(":sdk")
-include(":sample-basic")
-include(":sample-existing-firebase")
+// The sample apps are not tracked in git (see .gitignore), so they exist only in a developer's
+// checkout. Including them unconditionally fails every build without them -- JitPack's included.
+listOf("sample-basic", "sample-existing-firebase").forEach { sample ->
+    if (file(sample).isDirectory) include(":$sample")
+}
