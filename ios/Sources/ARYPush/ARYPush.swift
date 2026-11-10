@@ -92,6 +92,33 @@ public enum ARYPush {
         core.permissionManager.status(completion)
     }
 
+    /// Turns this application's notifications on or off, independently of the system authorization.
+    ///
+    /// For an in-app notifications switch. Off means the backend is told this device has
+    /// notifications disabled, so it stops sending to it, and the SDK presents no foreground
+    /// banner. Messages are still delivered to the received-notification listeners.
+    ///
+    /// Persisted across restarts; on by default. Setting the current value again does nothing.
+    ///
+    /// The system authorization is not affected and cannot be granted from here: when the user
+    /// has notifications off in Settings, turning this on stores the choice but nothing is shown
+    /// until they also allow them there (``openNotificationSettings()``).
+    ///
+    /// An alert that arrives while the application is in the background is displayed by iOS
+    /// itself, so the backend honouring the flag is what actually stops delivery.
+    public static func setNotificationsEnabled(_ enabled: Bool) {
+        core("setNotificationsEnabled")?.setNotificationsEnabled(enabled)
+    }
+
+    /// The in-app choice last set with ``setNotificationsEnabled(_:)``; `true` until it is
+    /// turned off.
+    ///
+    /// This is the application's own switch, not the system authorization: combine it with
+    /// ``getPermissionStatus()`` to know whether notifications will actually be shown.
+    public static var isNotificationsEnabled: Bool {
+        core("isNotificationsEnabled")?.notificationPreference.enabledByUser ?? true
+    }
+
     /// Opens this application's page in Settings.
     ///
     /// The escape hatch for a user who has already denied: iOS will not present the prompt a

@@ -164,7 +164,9 @@ private extension URLSessionRestClient {
 
             let result: ApiResult<T>
             do {
+                print("[ARYPush-DEBUG] >>> \(method) \(url.absoluteString) body=\(request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? "<none>")") // CLAUDE-TEMP-DEBUG
                 let (data, response) = try await perform(request)
+                print("[ARYPush-DEBUG] <<< \(method) \(url.path) status=\((response as? HTTPURLResponse)?.statusCode ?? -1) body=\(String(data: data, encoding: .utf8) ?? "<binary>")") // CLAUDE-TEMP-DEBUG
                 result = interpret(data: data, response: response, parse: parse)
             } catch is CancellationError {
                 // Cancellation is the caller's decision, never a transport failure.

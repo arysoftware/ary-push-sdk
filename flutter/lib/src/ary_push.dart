@@ -69,6 +69,29 @@ class ARYPush {
     return PushPermissionStatus.fromWire(result);
   }
 
+  /// Turns this application's notifications on or off, independently of the system permission.
+  ///
+  /// For an in-app notifications switch. Off means the backend is told this device has
+  /// notifications disabled, so it stops sending to it, and the SDK shows nothing it would
+  /// otherwise display. Messages are still delivered to [onNotificationReceived].
+  ///
+  /// Persisted across restarts; on by default. Setting the current value again does nothing.
+  ///
+  /// The system permission is not affected and cannot be granted from here: when the user has
+  /// notifications off in system settings, turning this on stores the choice but nothing is shown
+  /// until they also allow them there ([openNotificationSettings]).
+  static Future<void> setNotificationsEnabled(bool enabled) async {
+    await _platform.invoke<void>(
+        'setNotificationsEnabled', <String, dynamic>{'enabled': enabled});
+  }
+
+  /// The in-app choice last set with [setNotificationsEnabled]; `true` until it is turned off.
+  ///
+  /// This is the application's own switch, not the system permission: combine it with
+  /// [getPermissionStatus] to know whether notifications will actually be shown.
+  static Future<bool> isNotificationsEnabled() async =>
+      await _platform.invoke<bool>('isNotificationsEnabled') ?? true;
+
   /// Opens this application's notification settings.
   ///
   /// The escape hatch for a user who has already denied and can no longer be shown a prompt.

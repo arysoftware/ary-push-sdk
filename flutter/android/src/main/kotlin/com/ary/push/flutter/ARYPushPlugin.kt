@@ -183,6 +183,13 @@ public class ARYPushPlugin :
             "getPermissionStatus" ->
                 result.success(ARYPush.getPermissionStatus().toWire())
 
+            "setNotificationsEnabled" -> {
+                ARYPush.setNotificationsEnabled(call.argument<Boolean>("enabled") ?: true)
+                result.success(null)
+            }
+
+            "isNotificationsEnabled" -> result.success(ARYPush.isNotificationsEnabled())
+
             "openNotificationSettings" -> {
                 ARYPush.openNotificationSettings(applicationContext)
                 result.success(null)

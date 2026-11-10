@@ -106,6 +106,38 @@ public object ARYPush {
             ?: PushPermissionStatus.NOT_DETERMINED
 
     /**
+     * Turns this application's notifications on or off, independently of the system permission.
+     *
+     * For an in-app notifications switch. Off means the backend is told this device has
+     * notifications disabled, so it stops sending to it, and the SDK shows nothing it would
+     * otherwise render. Messages still reach [addNotificationReceivedListener].
+     *
+     * Persisted across restarts; on by default. Setting the current value again does nothing.
+     *
+     * The system permission is not affected and cannot be granted from here: when the system has
+     * notifications off, turning this on stores the choice but nothing is shown until the user
+     * also allows them in Settings ([openNotificationSettings]).
+     *
+     * A message with a `notification` block that arrives while the application is in the
+     * background is displayed by Android itself, so the backend honouring the flag is what
+     * actually stops delivery.
+     */
+    @JvmStatic
+    public fun setNotificationsEnabled(enabled: Boolean) {
+        requireCore("setNotificationsEnabled")?.setNotificationsEnabled(enabled)
+    }
+
+    /**
+     * The in-app choice last set with [setNotificationsEnabled]; `true` until it is turned off.
+     *
+     * This is the application's own switch, not the system permission: combine it with
+     * [getPermissionStatus] to know whether notifications will actually be shown.
+     */
+    @JvmStatic
+    public fun isNotificationsEnabled(): Boolean =
+        requireCore("isNotificationsEnabled")?.notificationPreference?.enabledByUser ?: true
+
+    /**
      * Opens this application's notification settings.
      *
      * The escape hatch for a permanently denied user, who can no longer be shown a prompt.

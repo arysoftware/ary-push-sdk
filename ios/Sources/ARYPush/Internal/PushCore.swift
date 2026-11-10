@@ -34,6 +34,7 @@ final class PushCore {
     let device: DeviceInfoProvider
     let installationManager: InstallationManager
     let permissionManager: PermissionManager
+    let notificationPreference: NotificationPreference
     let dispatcher: NotificationEventDispatcher
     let appState: AppStateTracker
 
@@ -74,6 +75,7 @@ final class PushCore {
         self.device = DeviceInfoProvider(bundle: bundle)
         self.installationManager = InstallationManager(storage: storage)
         self.permissionManager = PermissionManager(storage: storage)
+        self.notificationPreference = NotificationPreference(storage: storage)
         self.dispatcher = NotificationEventDispatcher(storage: storage)
         self.appState = AppStateTracker()
         self.deduplication = DeduplicationManager(
@@ -228,7 +230,9 @@ extension PushCore {
             PushLogger.info("Permission status: \(status.rawValue)")
 
             if self.permissionManager.recordStatusChange(status) {
-                self.syncManager.enqueuePermissionUpdate(enabled: status.isAuthorized)
+                self.syncManager.enqueuePermissionUpdate(
+                    enabled: self.notificationPreference.effective(osAuthorized: status.isAuthorized)
+                )
             }
 
             if status.isAuthorized, self.config.autoRegisterForRemoteNotifications {
@@ -474,6 +478,10 @@ extension PushCore {
             return []
         case .show:
             if isNew { dispatch(received: parsed, foreground: true) }
+            guard notificationPreference.enabledByUser else {
+                PushLogger.debug("Notifications are turned off in the app; message \(parsed.id) not shown")
+                return []
+            }
             PushLogger.info("Foreground notification intercepted. Displaying native banner.")
             return Self.foregroundPresentationOptions
         }
@@ -642,6 +650,27 @@ extension PushCore {
         dispatch(received: parsed, foreground: foreground)
     }
 
+    /// Applies the in-app notification switch.
+    ///
+    /// The choice is stored first, so it holds even if the backend is unreachable; the backend is
+    /// then told through the durable queue -- the toggle endpoint when what it should know actually
+    /// changed, and a registration update, which carries `notificationsEnabled` too.
+    func setNotificationsEnabled(_ enabled: Bool) {
+        let osAuthorized = storage.string(StorageManager.Keys.lastPermissionState)
+            .map { PushPermissionStatus(rawValue: $0)?.isAuthorized ?? false } ?? false
+        let before = notificationPreference.effective(osAuthorized: osAuthorized)
+        guard notificationPreference.setEnabledByUser(enabled) else {
+            PushLogger.debug("Notifications already \(enabled ? "enabled" : "disabled") in the app")
+            return
+        }
+        PushLogger.info("Notifications \(enabled ? "enabled" : "disabled") in the app")
+        let after = notificationPreference.effective(osAuthorized: osAuthorized)
+        if after != before {
+            syncManager.enqueuePermissionUpdate(enabled: after)
+        }
+        syncManager.registerInstallationIfChanged()
+    }
+
     /// Records the APNs device token and re-registers when it changed.
     func handleAPNsToken(_ deviceToken: Data) {
         tokenManager.handleAPNsToken(deviceToken)
@@ -687,7 +716,9 @@ extension PushCore {
             }
 
             if self.permissionManager.recordStatusChange(status) {
-                self.syncManager.enqueuePermissionUpdate(enabled: status.isAuthorized)
+                self.syncManager.enqueuePermissionUpdate(
+                    enabled: self.notificationPreference.effective(osAuthorized: status.isAuthorized)
+                )
             }
 
             if status.isAuthorized {
@@ -770,7 +801,7 @@ extension PushCore {
             deviceModel: collect ? device.deviceModel : nil,
             locale: collect ? device.locale : nil,
             timezone: collect ? device.timezone : nil,
-            notificationsEnabled: authorized
+            notificationsEnabled: notificationPreference.effective(osAuthorized: authorized)
         )
     }
 
@@ -784,7 +815,9 @@ extension PushCore {
         permissionManager.status { [weak self] status in
             guard let self else { return }
             if self.permissionManager.recordStatusChange(status) {
-                self.syncManager.enqueuePermissionUpdate(enabled: status.isAuthorized)
+                self.syncManager.enqueuePermissionUpdate(
+                    enabled: self.notificationPreference.effective(osAuthorized: status.isAuthorized)
+                )
                 self.syncManager.registerInstallationIfChanged()
             }
             self.syncManager.requestSync()

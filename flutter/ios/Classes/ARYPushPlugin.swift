@@ -154,6 +154,13 @@ extension ARYPushPlugin {
         case "getPermissionStatus":
             ARYPush.getPermissionStatus { status in result(status.rawValue) }
 
+        case "setNotificationsEnabled":
+            ARYPush.setNotificationsEnabled(arguments["enabled"] as? Bool ?? true)
+            result(nil)
+
+        case "isNotificationsEnabled":
+            result(ARYPush.isNotificationsEnabled)
+
         case "openNotificationSettings":
             Task { @MainActor in
                 ARYPush.openNotificationSettings()

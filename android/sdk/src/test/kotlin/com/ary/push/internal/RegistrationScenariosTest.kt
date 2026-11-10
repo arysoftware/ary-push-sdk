@@ -309,4 +309,130 @@ class RegistrationScenariosTest {
         repeat(3) { nativeLaunch() }
         assertEquals(1, registerCount())
     }
+
+    // ------------------------------------------------------------------ in-app notifications switch
+
+    private fun grantNotificationPermission() {
+        shadowOf(context).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun toggles(): List<RecordedRequest> =
+        synchronized(requests) { requests.filter { it.path.orEmpty().contains("/devices/toggle") } }
+
+    private fun bodyOf(request: RecordedRequest) = request.body.clone().readUtf8()
+
+    @Test
+    fun `S17 turning notifications off tells the server once`() {
+        grantNotificationPermission()
+        val core = flutterLaunch()
+        core.handleNewToken("fcm-token-1")   // the toggle endpoint addresses the device by token
+        settle()
+        val registersBefore = registerCount()
+        assertTrue(bodyOf(registers().last()).contains("\"notificationsEnabled\":true"))
+
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        settle()
+
+        assertEquals(registersBefore + 1, registerCount())
+        assertTrue(bodyOf(registers().last()).contains("\"notificationsEnabled\":false"))
+        assertEquals(1, toggles().size)
+        assertTrue(bodyOf(toggles().single()).contains("\"notificationsEnabled\":false"))
+        assertTrue(bodyOf(toggles().single()).contains("fcm-token-1"))
+    }
+
+    @Test
+    fun `S18 the choice survives relaunches and is not resent`() {
+        grantNotificationPermission()
+        flutterLaunch()
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        settle()
+        val sent = requests.size
+
+        repeat(2) { flutterLaunch() }
+
+        assertEquals(sent, requests.size)
+        assertEquals(false, com.ary.push.ARYPush.isNotificationsEnabled())
+    }
+
+    @Test
+    fun `S19 setting the same value again sends nothing`() {
+        grantNotificationPermission()
+        flutterLaunch()
+        val sent = requests.size
+
+        com.ary.push.ARYPush.setNotificationsEnabled(true)   // already on
+        settle()
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        settle()
+        val afterOff = requests.size
+        com.ary.push.ARYPush.setNotificationsEnabled(false)  // already off
+        settle()
+
+        assertTrue(afterOff > sent)
+        assertEquals(afterOff, requests.size)
+    }
+
+    @Test
+    fun `S20 turning notifications back on tells the server`() {
+        grantNotificationPermission()
+        flutterLaunch()
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        settle()
+        val registersWhenOff = registerCount()
+
+        com.ary.push.ARYPush.setNotificationsEnabled(true)
+        settle()
+
+        assertEquals(registersWhenOff + 1, registerCount())
+        assertTrue(bodyOf(registers().last()).contains("\"notificationsEnabled\":true"))
+        assertEquals(true, com.ary.push.ARYPush.isNotificationsEnabled())
+    }
+
+    @Test
+    fun `S21 with the system permission off the switch changes nothing on the server`() {
+        flutterLaunch()   // no POST_NOTIFICATIONS grant: the server already sees notifications off
+        val sent = requests.size
+
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        settle()
+
+        assertEquals(sent, requests.size)
+        assertEquals(false, com.ary.push.ARYPush.isNotificationsEnabled())   // still remembered
+    }
+
+    @Test
+    fun `S22 nothing is shown while off but the app still receives the message`() {
+        grantNotificationPermission()
+        val core = flutterLaunch()
+        val received = mutableListOf<String>()
+        com.ary.push.ARYPush.addNotificationReceivedListener { received += it.id }
+        val manager = context.getSystemService(android.app.NotificationManager::class.java)
+
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        core.handleRemoteMessage(dataMessage("m-off"))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, shadowOf(manager).allNotifications.size)
+
+        com.ary.push.ARYPush.setNotificationsEnabled(true)
+        core.handleRemoteMessage(dataMessage("m-on"))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, shadowOf(manager).allNotifications.size)
+
+        assertEquals(listOf("m-off", "m-on"), received)
+    }
+
+    @Test
+    fun `S23 calls before initialize are ignored without crashing`() {
+        PushCore.resetForTesting()
+        com.ary.push.ARYPush.setNotificationsEnabled(false)
+        assertEquals(true, com.ary.push.ARYPush.isNotificationsEnabled())
+        assertEquals(0, requests.size)
+    }
+
+    private fun dataMessage(id: String) =
+        com.google.firebase.messaging.RemoteMessage.Builder("push-api@fcm.googleapis.com")
+            .setMessageId(id)
+            .addData("title", "Sale")
+            .addData("body", "50% off")
+            .build()
 }

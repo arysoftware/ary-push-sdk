@@ -222,6 +222,36 @@ void main() {
     });
   });
 
+  group('in-app notifications switch', () {
+    test('setNotificationsEnabled sends the choice to the native side', () async {
+      await ARYPush.setNotificationsEnabled(false);
+      await ARYPush.setNotificationsEnabled(true);
+
+      expect(
+        calls
+            .where((MethodCall call) => call.method == 'setNotificationsEnabled')
+            .map((MethodCall call) => call.arguments)
+            .toList(),
+        <Object?>[
+          <String, dynamic>{'enabled': false},
+          <String, dynamic>{'enabled': true},
+        ],
+      );
+    });
+
+    test('isNotificationsEnabled reports the native value', () async {
+      responses['isNotificationsEnabled'] = false;
+      expect(await ARYPush.isNotificationsEnabled(), isFalse);
+
+      responses['isNotificationsEnabled'] = true;
+      expect(await ARYPush.isNotificationsEnabled(), isTrue);
+    });
+
+    test('isNotificationsEnabled defaults to on when the native side has no answer', () async {
+      expect(await ARYPush.isNotificationsEnabled(), isTrue);
+    });
+  });
+
   group('topics', () {
     test('subscribeToTopic reports the native result', () async {
       responses['subscribeToTopic'] = true;

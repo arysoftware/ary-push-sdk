@@ -124,6 +124,7 @@ internal class StorageManager(context: Context) {
         const val KEY_REGISTRATION_HASH: String = NS + "registration_hash"
         const val KEY_LAST_PERMISSION_STATE: String = NS + "last_permission_state"
         const val KEY_PERMISSION_REQUESTED: String = NS + "permission_requested"
+        const val KEY_NOTIFICATIONS_ENABLED_BY_USER: String = NS + "notifications_enabled_by_user"
         const val KEY_APP_VERSION: String = NS + "app_version"
         const val KEY_SDK_VERSION: String = NS + "sdk_version"
     }

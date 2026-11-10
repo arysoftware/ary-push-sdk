@@ -21,6 +21,7 @@ import com.ary.push.internal.notification.LaunchUrlOpener
 import com.ary.push.internal.notification.NotificationEventDispatcher
 import com.ary.push.internal.notification.NotificationParser
 import com.ary.push.internal.notification.NotificationRenderer
+import com.ary.push.internal.permission.NotificationPreference
 import com.ary.push.internal.permission.PermissionManager
 import com.ary.push.internal.permission.PermissionRequestActivity
 import com.ary.push.internal.storage.StorageManager
@@ -82,6 +83,7 @@ internal class PushCore private constructor(
     val device: DeviceInfoProvider = DeviceInfoProvider(appContext)
     val installationManager: InstallationManager = InstallationManager(storage)
     val permissionManager: PermissionManager = PermissionManager(appContext, storage)
+    val notificationPreference: NotificationPreference = NotificationPreference(storage)
     val dispatcher: NotificationEventDispatcher = NotificationEventDispatcher(storage)
     val foregroundTracker: AppForegroundTracker = AppForegroundTracker.attach(appContext)
 
@@ -159,7 +161,7 @@ internal class PushCore private constructor(
         PushLogger.i { "Permission status: ${permissionManager.status}" }
 
         if (permissionManager.recordStatusChange()) {
-            syncManager.enqueuePermissionUpdate(permissionManager.isAuthorized)
+            syncManager.enqueuePermissionUpdate(notificationsEffectivelyEnabled)
         }
 
         scope.launch {
@@ -312,9 +314,15 @@ internal class PushCore private constructor(
         // Only data messages reach this code while the app is backgrounded: a message with a
         // `notification` block is rendered by the system itself and never surfaces here. That
         // asymmetry is the OS's, not the SDK's, and is documented in NOTIFICATION_LIFECYCLE.md.
+        val hasContent = notification.title != null || notification.body != null
         val shouldRender = config.displayNotifications &&
             policy == ForegroundDisplayPolicy.SHOW &&
-            (notification.title != null || notification.body != null)
+            hasContent &&
+            notificationPreference.enabledByUser
+
+        if (hasContent && !notificationPreference.enabledByUser) {
+            PushLogger.d { "Notifications are turned off in the app; message ${notification.id} not shown" }
+        }
 
         if (shouldRender) {
             if (inForeground) {
@@ -326,6 +334,30 @@ internal class PushCore private constructor(
 
         dispatcher.dispatchReceived(notification)
         eventManager.trackNotificationReceived(notification.id, inForeground)
+    }
+
+    /** What the backend is told: the system permits notifications and the user has not opted out. */
+    val notificationsEffectivelyEnabled: Boolean
+        get() = notificationPreference.effective(permissionManager.isAuthorized)
+
+    /**
+     * Applies the in-app notification switch.
+     *
+     * The choice is stored first, so it holds even if the backend is unreachable; the backend is
+     * then told through the durable queue -- the toggle endpoint when what it should know actually
+     * changed, and a registration update, which carries `notificationsEnabled` too.
+     */
+    fun setNotificationsEnabled(enabled: Boolean) {
+        val before = notificationsEffectivelyEnabled
+        if (!notificationPreference.setEnabledByUser(enabled)) {
+            PushLogger.d { "Notifications already ${if (enabled) "enabled" else "disabled"} in the app" }
+            return
+        }
+        PushLogger.i { "Notifications ${if (enabled) "enabled" else "disabled"} in the app" }
+        if (notificationsEffectivelyEnabled != before) {
+            syncManager.enqueuePermissionUpdate(notificationsEffectivelyEnabled)
+        }
+        syncManager.registerInstallationIfChanged()
     }
 
     /** Records a token reported by a messaging service, whether the SDK's or the host's. */
@@ -432,7 +464,7 @@ internal class PushCore private constructor(
         PermissionRequestActivity.start(appContext) { status ->
             PushLogger.i { "Permission result: $status" }
             if (permissionManager.recordStatusChange()) {
-                syncManager.enqueuePermissionUpdate(permissionManager.isAuthorized)
+                syncManager.enqueuePermissionUpdate(notificationsEffectivelyEnabled)
             }
             if (status.isAuthorized) {
                 // A device that just became reachable is worth registering immediately.
@@ -538,7 +570,7 @@ internal class PushCore private constructor(
             deviceModel = if (collectDeviceInfo) device.deviceModel else null,
             locale = if (collectDeviceInfo) device.locale else null,
             timezone = if (collectDeviceInfo) device.timezone else null,
-            notificationsEnabled = permissionManager.isAuthorized
+            notificationsEnabled = notificationsEffectivelyEnabled
         )
     }
 
