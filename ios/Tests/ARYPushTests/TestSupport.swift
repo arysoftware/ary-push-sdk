@@ -22,8 +22,23 @@ final class FakePushBackend: PushBackend, @unchecked Sendable {
     private let lock = NSLock()
     private(set) var calls: [String] = []
     private var scripted: [ApiResult<Void>] = []
+    private var registerHook: ((Installation) -> Void)?
 
     var defaultResult: ApiResult<Void> = .success((), statusCode: 200)
+
+    /// Simulates a context change while registration is in flight, before its result returns.
+    var onRegister: ((Installation) -> Void)? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return registerHook
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            registerHook = newValue
+        }
+    }
 
     func script(_ results: ApiResult<Void>...) {
         lock.lock()
@@ -45,7 +60,9 @@ final class FakePushBackend: PushBackend, @unchecked Sendable {
     }
 
     func registerInstallation(_ installation: Installation) async -> ApiResult<Void> {
-        next("register")
+        let result = next("register")
+        onRegister?(installation)
+        return result
     }
 
     func updateToken(

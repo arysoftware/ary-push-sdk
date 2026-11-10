@@ -211,6 +211,13 @@ public struct ARYPushConfig {
     /// What to do with a message that arrives while the application is in the foreground.
     public let foregroundDisplay: ForegroundDisplayPolicy
 
+    /// Open a notification's launch URL automatically when the user taps it.
+    ///
+    /// Set this to false when the host routes notification taps through its own navigation.
+    /// Notification-opened callbacks and analytics still run. Defaults to true for existing
+    /// integrations. Also read from `AutoOpenNotificationURLs` in the `ARYPush` Info.plist dictionary.
+    public let autoOpenNotificationURLs: Bool
+
     /// Backend environment. Omit for a fully local, server-less integration.
     public let backend: PushBackendConfig?
 
@@ -264,6 +271,7 @@ public struct ARYPushConfig {
         authorizationOptions: UNAuthorizationOptions = [.alert, .badge, .sound],
         autoRegisterForRemoteNotifications: Bool = true,
         foregroundDisplay: ForegroundDisplayPolicy = .show,
+        autoOpenNotificationURLs: Bool = true,
         backend: PushBackendConfig? = nil,
         network: NetworkConfig = NetworkConfig(),
         retry: RetryConfig = RetryConfig(),
@@ -282,6 +290,7 @@ public struct ARYPushConfig {
         self.authorizationOptions = authorizationOptions
         self.autoRegisterForRemoteNotifications = autoRegisterForRemoteNotifications
         self.foregroundDisplay = foregroundDisplay
+        self.autoOpenNotificationURLs = autoOpenNotificationURLs
         self.backend = backend
         self.network = network
         self.retry = retry
