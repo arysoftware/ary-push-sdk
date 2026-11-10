@@ -49,11 +49,12 @@ fi
 
 if [[ "$TARGET" == "all" || "$TARGET" == "ios" ]]; then
     section "iOS"
-    if command -v swift >/dev/null; then
-        run "build" swift build --package-path ios
-        run "tests" swift test --package-path ios
+    if command -v xcodebuild >/dev/null; then
+        run "root manifest" xcrun swift package dump-package
+        run "nested manifest" xcrun swift package --package-path ios dump-package
+        run "tests" xcodebuild test -scheme ARYPush -destination 'platform=iOS Simulator,name=iPhone 15'
     else
-        skip "swift not available (macOS only)"
+        skip "Xcode not available (macOS only)"
     fi
 fi
 

@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'ios/**'
+      - 'Package.swift'
       - '.github/workflows/ios.yml'
   pull_request:
     paths:
       - 'ios/**'
+      - 'Package.swift'
       - '.github/workflows/ios.yml'
 
 concurrency:
@@ -26,26 +28,13 @@ jobs:
       - name: Show toolchain
         run: swift --version
 
-      - name: Build
-        working-directory: ios
-        run: swift build
-
-      - name: Test
-        working-directory: ios
-        run: swift test
-
-      # A package that builds for the host platform can still fail to build for a device, so the
-      # real destination is exercised too.
-      - name: Build for iOS Simulator
+      - name: Validate both package manifests
         run: |
-          xcodebuild build \
-            -scheme ARYPush \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
-            -skipPackagePluginValidation \
-            | xcpretty || xcodebuild build \
-              -scheme ARYPush \
-              -destination 'platform=iOS Simulator,name=iPhone 15'
-        working-directory: ios
+          swift package dump-package
+          swift package --package-path ios dump-package
+
+      - name: Test root Swift package on iOS Simulator
+        run: xcodebuild test -scheme ARYPush -destination 'platform=iOS Simulator,name=iPhone 15' -skipPackagePluginValidation
 
       - name: Validate the CocoaPods spec
         working-directory: ios
