@@ -110,5 +110,6 @@ final class StorageManager {
         static let registrationHash = namespace + "registration_hash"
         static let lastPermissionState = namespace + "last_permission_state"
         static let permissionRequested = namespace + "permission_requested"
+        static let notificationPreference = namespace + "notificationPreference"
     }
 }

@@ -47,6 +47,7 @@ enum InfoPlistConfigReader {
             autoRegisterForRemoteNotifications:
                 dictionary["AutoRegisterForRemoteNotifications"] as? Bool ?? true,
             foregroundDisplay: foregroundPolicy(dictionary["ForegroundDisplay"] as? String) ?? .show,
+            autoOpenNotificationURLs: dictionary["AutoOpenNotificationURLs"] as? Bool ?? true,
             backend: backend,
             collectDeviceInfo: dictionary["CollectDeviceInfo"] as? Bool ?? true,
             proxyNotificationCenterDelegate:

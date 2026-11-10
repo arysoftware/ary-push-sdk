@@ -32,6 +32,7 @@ final class SyncManager {
     /// happened and silently discard queued work. The identity is also part of the registration
     /// hash, so a new server or project registers once on its own.
     private let environmentProvider: () -> String?
+    private let writes = BackendWriteQueue()
 
     private let lock = NSLock()
     private var drainTask: Task<Void, Never>?
@@ -58,6 +59,32 @@ final class SyncManager {
     static let defaultEnvironment = "default"
 
     // MARK: - Entry points
+
+    /// Acknowledged preference writes share the same lane as automatic sync.
+    func setNotificationPreference(_ enabled: Bool) async -> Bool {
+        await writes.run { [self] in
+            guard isOnline(), let environment = environmentProvider(),
+                  let installation = installationProvider(),
+                  let token = installation.pushToken,
+                  !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            let backend = backendProvider()
+            let result = await registered(installation, backend) {
+                await backend.updateNotificationPermission(installationId: installation.id, enabled: enabled)
+            }
+            guard result.isSuccess, environmentProvider() == environment,
+                  installationProvider()?.pushToken == token,
+                  installationProvider()?.provider == installation.provider,
+                  installationProvider()?.id == installation.id else { return false }
+            storage.set(StorageManager.Keys.notificationPreference, enabled)
+            // The toggle has already synchronized this field. Avoid a redundant registration
+            // unless another installation field changed while the request was in flight.
+            if let current = installationProvider(),
+               registrationHash(current) == registrationHash(installation, notificationsEnabled: current.notificationsEnabled) {
+                storage.set(StorageManager.Keys.registrationHash, registrationHash(current))
+            }
+            return true
+        }
+    }
 
     func enqueueTokenUpdate(token: String, provider: PushProvider) {
         enqueue(
@@ -167,6 +194,8 @@ final class SyncManager {
         // Queued operations wait for a real backend instead of being "delivered" to the no-op one.
         guard environmentProvider() != nil else { return }
         guard !queue.isEmpty else { return }
+        guard let token = installationProvider()?.pushToken,
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         lock.lock()
         if let existing = drainTask, !existing.isCancelled {
@@ -191,6 +220,8 @@ final class SyncManager {
         lock.lock()
         drainTask = nil
         lock.unlock()
+        // Work can arrive after drain observed an empty queue but before this task cleared.
+        if !Task.isCancelled, isOnline() { requestSync() }
     }
 }
 
@@ -210,7 +241,18 @@ private extension SyncManager {
                 return
             }
 
-            let outcome = await execute(operation)
+            guard environmentProvider() != nil,
+                  let token = installationProvider()?.pushToken,
+                  !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            let pendingOutcome: ApiResult<Void>? = await writes.run { [self] in
+                // Readiness may change while waiting behind another write. Park the operation
+                // rather than acknowledging a tokenless or no-op-backend request.
+                guard environmentProvider() != nil,
+                      let currentToken = installationProvider()?.pushToken,
+                      !currentToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                return await execute(operation)
+            }
+            guard let outcome = pendingOutcome else { return }
 
             if outcome.isSuccess {
                 queue.remove(id: operation.id)
@@ -279,9 +321,11 @@ private extension SyncManager {
                 PushLogger.debug("Installation already registered as is; skipping queued registration")
                 return .success((), statusCode: 200)
             }
+            let environment = environmentProvider()
+            let expected = registrationHash(installation)
             let result = await backend.registerInstallation(installation)
-            if result.isSuccess {
-                storage.set(StorageManager.Keys.registrationHash, registrationHash(installation))
+            if result.isSuccess, environmentProvider() == environment {
+                storage.set(StorageManager.Keys.registrationHash, expected)
             }
             return result
 
@@ -296,6 +340,9 @@ private extension SyncManager {
                 )
             }
             let provider = PushProvider.fromWire(operation.payload[PendingOperation.Key.provider])
+            guard token == installation.pushToken, provider == installation.provider else {
+                return .success((), statusCode: 200)
+            }
             return await registered(installation, backend) {
                 await backend.updateToken(
                     installationId: installation.id,
@@ -351,11 +398,11 @@ private extension SyncManager {
             }
 
         case .updatePermission:
-            let enabled = operation.payload[PendingOperation.Key.enabled] == "true"
             return await registered(installation, backend) {
                 await backend.updateNotificationPermission(
                     installationId: installation.id,
-                    enabled: enabled
+                    enabled: self.installationProvider()?.notificationsEnabled == true
+                        && self.storage.bool(StorageManager.Keys.notificationPreference, default: true)
                 )
             }
 
@@ -379,6 +426,7 @@ private extension SyncManager {
         _ block: () async -> ApiResult<Void>
     ) async -> ApiResult<Void> {
         let expected = registrationHash(installation)
+        let environment = environmentProvider()
         if storage.string(StorageManager.Keys.registrationHash) == expected {
             return await block()
         }
@@ -387,6 +435,12 @@ private extension SyncManager {
         guard registration.isSuccess else {
             PushLogger.debug("Deferring dependent operation: registration \(describe(registration))")
             return registration
+        }
+        guard environmentProvider() == environment,
+              installationProvider()?.pushToken == installation.pushToken,
+              installationProvider()?.provider == installation.provider else {
+            return .failure(ApiError(statusCode: nil, code: "registration_changed",
+                                     message: "Registration context changed during synchronization"))
         }
         storage.set(StorageManager.Keys.registrationHash, expected)
         return await block()
@@ -401,7 +455,7 @@ private extension SyncManager {
     ///
     /// Only the fields the backend stores contribute, so a locale change re-registers but a new
     /// timestamp does not.
-    func registrationHash(_ installation: Installation) -> String {
+    func registrationHash(_ installation: Installation, notificationsEnabled: Bool? = nil) -> String {
         let parts: [String] = [
             environmentProvider() ?? "",
             installation.id,
@@ -416,7 +470,7 @@ private extension SyncManager {
             installation.deviceModel ?? "",
             installation.locale ?? "",
             installation.timezone ?? "",
-            String(installation.notificationsEnabled)
+            String(notificationsEnabled ?? installation.notificationsEnabled)
         ]
         // A stable digest rather than `hashValue`, which is seeded per process and would make
         // every launch look like a changed registration.

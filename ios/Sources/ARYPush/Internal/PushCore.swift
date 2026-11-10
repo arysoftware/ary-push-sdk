@@ -265,6 +265,7 @@ extension PushCore {
         let backendChanged = previous.backend?.normalizedBaseURL != newConfig.backend?.normalizedBaseURL
             || previous.backend?.applicationId != newConfig.backend?.applicationId
             || previous.backend?.projectId != newConfig.backend?.projectId
+            || previous.backend?.authToken != newConfig.backend?.authToken
             || previous.customBackend !== newConfig.customBackend
             || previous.authProvider !== newConfig.authProvider
 
@@ -474,6 +475,7 @@ extension PushCore {
             return []
         case .show:
             if isNew { dispatch(received: parsed, foreground: true) }
+            guard notificationPreference else { return [] }
             PushLogger.info("Foreground notification intercepted. Displaying native banner.")
             return Self.foregroundPresentationOptions
         }
@@ -518,6 +520,7 @@ extension PushCore {
     /// it. Everything else goes to the system: a scheme the application registers comes back to
     /// it, another app's Universal Link opens that app, and a plain web link opens in Safari.
     private func openLaunchURL(_ notification: PushNotification) {
+        guard config.autoOpenNotificationURLs else { return }
         // Only a tap on the notification itself opens the link. An action button means something
         // specific the host defined -- "Track", "Snooze", "Dismiss" -- and sending every one of
         // them to the same URL would be wrong; those stay purely host-handled through the event.
@@ -544,6 +547,8 @@ extension PushCore {
     /// the system otherwise. Reads the configuration at the moment of routing, not of the tap.
     @MainActor
     private func route(_ url: URL) {
+        // A cold-start link may have been held before the host supplied its opt-out.
+        guard config.autoOpenNotificationURLs else { return }
         PushLogger.info("Attempting internal AppLink/Universal Link routing for URL: \(url.absoluteString)")
 
         let ownDomains = config.universalLinkDomains + InfoPlistConfigReader.universalLinkDomains()
@@ -676,6 +681,18 @@ extension PushCore {
 
 extension PushCore {
 
+    var notificationPreference: Bool {
+        storage.bool(StorageManager.Keys.notificationPreference, default: true)
+    }
+
+    @MainActor
+    func setNotificationPreference(_ enabled: Bool) async -> Bool {
+        let status = await permissionManager.status()
+        _ = permissionManager.recordStatusChange(status)
+        guard !enabled || status.isAuthorized else { return false }
+        return await syncManager.setNotificationPreference(enabled)
+    }
+
     func requestPermission(
         options: UNAuthorizationOptions,
         completion: @escaping (PushPermissionStatus) -> Void
@@ -770,7 +787,7 @@ extension PushCore {
             deviceModel: collect ? device.deviceModel : nil,
             locale: collect ? device.locale : nil,
             timezone: collect ? device.timezone : nil,
-            notificationsEnabled: authorized
+            notificationsEnabled: authorized && notificationPreference
         )
     }
 
